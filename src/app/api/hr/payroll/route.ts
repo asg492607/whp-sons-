@@ -13,6 +13,7 @@ export async function GET() {
       calculateEmployeePayroll({
         employeeCode: emp.employeeCode,
         employeeName: emp.user?.name || "Showroom Executive",
+        branchName: "Dadar Flagship",
         department: emp.department?.name || "Retail Operations",
         designation: emp.designation?.name || "Senior Sales Consultant",
         monthlyBasicSalary: 35000,
