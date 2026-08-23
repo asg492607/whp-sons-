@@ -9,7 +9,12 @@ interface Jewellery360ViewerProps {
   grossWeight?: number;
 }
 
-export default function Jewellery360Viewer({ images, productName, purity = "22KT Gold", grossWeight }: Jewellery360ViewerProps) {
+export default function Jewellery360Viewer({
+  images,
+  productName,
+  purity = "22KT Gold",
+  grossWeight
+}: Jewellery360ViewerProps) {
   const [currentFrame, setCurrentFrame] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const startXRef = useRef(0);
@@ -38,6 +43,9 @@ export default function Jewellery360Viewer({ images, productName, purity = "22KT
     setIsDragging(false);
   };
 
+  const currentImage = images[currentFrame] || images[0];
+  const altText = productName + " 360 view frame " + (currentFrame + 1);
+
   return (
     <div className="relative bg-white rounded-2xl border border-[#E8E2D9] shadow-sm overflow-hidden group select-none cursor-grab active:cursor-grabbing">
       {/* Small WHPS Brand Logo Watermark in Top Right Corner */}
@@ -63,8 +71,8 @@ export default function Jewellery360Viewer({ images, productName, purity = "22KT
         onMouseLeave={handleMouseUp}
       >
         <img
-          src={images[currentFrame] || images[0]}
-          alt={`${productName} 360 view frame ${currentFrame + 1}`}
+          src={currentImage}
+          alt={altText}
           className="max-h-full max-w-full object-contain drop-shadow-md transition-all duration-150"
         />
 
