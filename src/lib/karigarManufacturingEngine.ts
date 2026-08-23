@@ -1,34 +1,72 @@
+export type ManufacturingMethod = "CASTING" | "HANDMADE" | "MACHINE_STAMPED" | "BESPOKE_NAGAS";
+
+export interface ManufacturingStandardRule {
+  category: string;
+  metal: "GOLD" | "SILVER" | "PLATINUM";
+  purity: "24KT" | "22KT" | "18KT" | "14KT";
+  method: ManufacturingMethod;
+  allowedWastagePercent: number;
+  allowedLabourRatePerGm: number;
+}
+
+/** Configurable WHPS Manufacturing Standards Master */
+export const MANUFACTURING_STANDARDS_MASTER: ManufacturingStandardRule[] = [
+  { category: "Saaj / Necklace", metal: "GOLD", purity: "22KT", method: "BESPOKE_NAGAS", allowedWastagePercent: 3.5, allowedLabourRatePerGm: 550 },
+  { category: "Bangles", metal: "GOLD", purity: "22KT", method: "CASTING", allowedWastagePercent: 2.0, allowedLabourRatePerGm: 350 },
+  { category: "Rings / Earrings", metal: "GOLD", purity: "22KT", method: "HANDMADE", allowedWastagePercent: 2.5, allowedLabourRatePerGm: 450 },
+  { category: "Chains", metal: "GOLD", purity: "22KT", method: "MACHINE_STAMPED", allowedWastagePercent: 1.5, allowedLabourRatePerGm: 250 },
+  { category: "Diamond Mounts", metal: "GOLD", purity: "18KT", method: "CASTING", allowedWastagePercent: 3.0, allowedLabourRatePerGm: 600 }
+];
+
 export interface KarigarJobInput {
   jobNo: string;
   orderType: "CUSTOM_MANUFACTURING" | "REPAIR_WORK";
+  category: string;
+  metal: "GOLD" | "SILVER" | "PLATINUM";
+  purity: "24KT" | "22KT" | "18KT" | "14KT";
+  method: ManufacturingMethod;
   customerName: string;
   karigarName: string;
-  metalPurity: "24KT" | "22KT" | "18KT" | "14KT";
   designBrief: string;
+  
+  // Material Issuance
   issuedGoldWeightGm: number;
   issuedStonesCarat?: number;
+  
+  // Material Returns
+  returnedFinishedWeightGm?: number;
+  scrapRecoveredGm?: number;
+  returnedStonesCarat?: number;
+  
   expectedFinishedWeightGm: number;
-  actualFinishedWeightGm?: number;
-  allowedWastagePercent?: number; // Default 2.5%
-  labourRatePerGm?: number;
+  otherCharges?: number;
+  approver?: string;
 }
 
 export interface KarigarJobReconciliation {
   jobNo: string;
   orderType: string;
+  category: string;
+  metal: string;
+  purity: string;
+  method: ManufacturingMethod;
   customerName: string;
   karigarName: string;
-  metalPurity: string;
   designBrief: string;
   
-  // Material Reconciliation
+  // Material Control
   issuedGoldWeightGm: number;
-  issuedStonesCarat: number;
-  expectedFinishedWeightGm: number;
-  actualFinishedWeightGm: number;
+  returnedFinishedWeightGm: number;
+  scrapRecoveredGm: number;
+  totalAccountedGoldGm: number;
   
-  // Wastage & Losses
+  issuedStonesCarat: number;
+  returnedStonesCarat: number;
+  stonesConsumedCarat: number;
+  
+  // Wastage Analysis
   actualWastageGm: number;
+  allowedWastagePercent: number;
   allowedWastageGm: number;
   excessWastageGm: number;
   isWastageApproved: boolean;
@@ -36,14 +74,16 @@ export interface KarigarJobReconciliation {
   // Financial Costing
   labourRatePerGm: number;
   labourCost: number;
+  otherCharges: number;
   materialValueIssued: number;
-  finalJobCost: number;
+  totalManufacturingCost: number;
   
   qcStatus: "PENDING" | "PASSED" | "REJECTED";
   status: "GOLD_ISSUED" | "CASTING" | "STONE_SETTING" | "HALLMARKING" | "QC_PASSED" | "COMPLETED";
+  approver: string;
 }
 
-const GOLD_RATES: Record<string, number> = {
+const GOLD_SPOT_RATES: Record<string, number> = {
   "24KT": 7470,
   "22KT": 6850,
   "18KT": 5600,
@@ -51,48 +91,97 @@ const GOLD_RATES: Record<string, number> = {
 };
 
 /**
- * WHPS Karigar Manufacturing & Material Reconciliation Engine
- * Tracks gold issued to Karigars, finished weight returned, wastage benchmarks, and labour costing.
+ * WHPS Manufacturing Standards Engine
+ * Lookup benchmark rule from MANUFACTURING_STANDARDS_MASTER based on Category + Metal + Purity + Method.
+ */
+export function lookupManufacturingStandard(
+  category: string,
+  metal: "GOLD" | "SILVER" | "PLATINUM",
+  purity: "24KT" | "22KT" | "18KT" | "14KT",
+  method: ManufacturingMethod
+): ManufacturingStandardRule {
+  const match = MANUFACTURING_STANDARDS_MASTER.find(
+    (rule) =>
+      rule.category.toLowerCase().includes(category.toLowerCase()) ||
+      category.toLowerCase().includes(rule.category.toLowerCase())
+  );
+
+  return match || {
+    category,
+    metal,
+    purity,
+    method,
+    allowedWastagePercent: 2.5,
+    allowedLabourRatePerGm: 450
+  };
+}
+
+/**
+ * Reconciles Karigar Jobs with complete Material Control, Benchmark Analysis & Costing
  */
 export function reconcileKarigarJob(input: KarigarJobInput): KarigarJobReconciliation {
-  const issuedGold = Math.max(0, input.issuedGoldWeightGm || 0);
-  const issuedStones = Math.max(0, input.issuedStonesCarat || 0);
-  const actualFinished = Math.max(0, input.actualFinishedWeightGm || input.expectedFinishedWeightGm || 0);
+  const standardRule = lookupManufacturingStandard(input.category, input.metal, input.purity, input.method);
 
-  const actualWastageGm = Math.max(0, Math.round((issuedGold - actualFinished) * 1000) / 1000);
-  
-  const allowedLossPercent = input.allowedWastagePercent !== undefined ? input.allowedWastagePercent : 2.5;
+  const issuedGold = Math.max(0, input.issuedGoldWeightGm || 0);
+  const scrap = Math.max(0, input.scrapRecoveredGm || 0);
+  const finished = Math.max(0, input.returnedFinishedWeightGm || input.expectedFinishedWeightGm || 0);
+
+  const totalAccountedGold = Math.round((finished + scrap) * 1000) / 1000;
+  const actualWastageGm = Math.max(0, Math.round((issuedGold - totalAccountedGold) * 1000) / 1000);
+
+  const allowedLossPercent = standardRule.allowedWastagePercent;
   const allowedWastageGm = Math.round(issuedGold * (allowedLossPercent / 100) * 1000) / 1000;
   const excessWastageGm = Math.max(0, Math.round((actualWastageGm - allowedWastageGm) * 1000) / 1000);
   const isWastageApproved = excessWastageGm === 0;
 
-  const ratePerGm = input.labourRatePerGm || 450; // ₹450/g Karigar making charge
-  const labourCost = Math.round(actualFinished * ratePerGm);
+  // Stones Disambiguation
+  const issuedStones = Math.max(0, input.issuedStonesCarat || 0);
+  const returnedStones = Math.max(0, input.returnedStonesCarat || 0);
+  const stonesConsumedCarat = Math.max(0, issuedStones - returnedStones);
 
-  const goldSpotRate = GOLD_RATES[input.metalPurity] || 6850;
-  const materialValueIssued = Math.round(issuedGold * goldSpotRate);
-  const finalJobCost = materialValueIssued + labourCost;
+  // Labour & Financial Costing
+  const labourRate = standardRule.allowedLabourRatePerGm;
+  const labourCost = Math.round(finished * labourRate);
+  const otherCharges = Math.max(0, input.otherCharges || 0);
+
+  const spotRate = GOLD_SPOT_RATES[input.purity] || 6850;
+  const materialValueIssued = Math.round(issuedGold * spotRate);
+  const totalManufacturingCost = materialValueIssued + labourCost + otherCharges;
 
   return {
     jobNo: input.jobNo || `JOB-${Date.now().toString().slice(-6)}`,
     orderType: input.orderType,
+    category: input.category,
+    metal: input.metal,
+    purity: input.purity,
+    method: input.method,
     customerName: input.customerName,
     karigarName: input.karigarName,
-    metalPurity: input.metalPurity,
     designBrief: input.designBrief,
+    
     issuedGoldWeightGm: issuedGold,
+    returnedFinishedWeightGm: finished,
+    scrapRecoveredGm: scrap,
+    totalAccountedGoldGm: totalAccountedGold,
+    
     issuedStonesCarat: issuedStones,
-    expectedFinishedWeightGm: input.expectedFinishedWeightGm,
-    actualFinishedWeightGm: actualFinished,
+    returnedStonesCarat: returnedStones,
+    stonesConsumedCarat,
+    
     actualWastageGm,
+    allowedWastagePercent: allowedLossPercent,
     allowedWastageGm,
     excessWastageGm,
     isWastageApproved,
-    labourRatePerGm: ratePerGm,
+    
+    labourRatePerGm: labourRate,
     labourCost,
+    otherCharges,
     materialValueIssued,
-    finalJobCost,
+    totalManufacturingCost,
+    
     qcStatus: isWastageApproved ? "PASSED" : "PENDING",
-    status: actualFinished > 0 ? "QC_PASSED" : "GOLD_ISSUED"
+    status: finished > 0 ? "QC_PASSED" : "GOLD_ISSUED",
+    approver: input.approver || "Manufacturing Manager"
   };
 }
