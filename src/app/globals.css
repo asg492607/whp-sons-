@@ -1,0 +1,47 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Tiro+Devanagari+Marathi&display=swap');
+@import "tailwindcss";
+
+:root {
+  --font-serif: 'Playfair Display', Georgia, serif;
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-devanagari: 'Tiro Devanagari Marathi', serif;
+  
+  /* Exact WHPS Logo Orange Palette */
+  --whps-orange: #ED5425;
+  --whps-orange-dark: #C83E13;
+  --whps-orange-light: #FFF2ED;
+  --whps-cream: #FAF8F5;
+  --whps-text: #1E1E1E;
+  --whps-muted: #666666;
+  --whps-border: #E8E2D9;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--whps-cream);
+  color: var(--whps-text);
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-serif {
+  font-family: var(--font-serif);
+}
+
+.font-marathi {
+  font-family: var(--font-devanagari);
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #FAF8F5;
+}
+::-webkit-scrollbar-thumb {
+  background: #E0D7CB;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #ED5425;
+}

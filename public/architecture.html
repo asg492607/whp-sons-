@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WHPS Digital Enterprise Platform — Architecture</title>
+  <meta name="description" content="Interactive system architecture and implementation task map for the WHPS Digital Enterprise Platform — 16 connected modules on a shared Central Data Platform." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #06060f;
+      --surface: rgba(255,255,255,0.03);
+      --border: rgba(255,255,255,0.08);
+      --border-hover: rgba(255,255,255,0.2);
+      --text: #e8eaf6;
+      --muted: #6b7280;
+      --cyan:   #22d3ee;
+      --violet: #a78bfa;
+      --indigo: #818cf8;
+      --blue:   #60a5fa;
+      --amber:  #f59e0b;
+      --rose:   #fb7185;
+      --emerald:#34d399;
+      --gold:   #fbbf24;
+    }
+
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background:
+        radial-gradient(ellipse 80% 50% at 20% 0%, rgba(99,102,241,0.12) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 40% at 80% 100%, rgba(34,211,238,0.08) 0%, transparent 60%),
+        radial-gradient(ellipse 40% 60% at 50% 50%, rgba(251,159,36,0.04) 0%, transparent 70%);
+      pointer-events: none; z-index: 0;
+    }
+
+    .shell {
+      position: relative; z-index: 1;
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      grid-template-rows: auto 1fr;
+      min-height: 100vh;
+    }
+
+    header {
+      grid-column: 1 / -1;
+      padding: 28px 36px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      backdrop-filter: blur(12px);
+      background: rgba(6,6,15,0.6);
+      position: sticky; top: 0; z-index: 100;
+    }
+    .logo { display: flex; align-items: center; gap: 14px; }
+    .logo-mark {
+      width: 40px; height: 40px; border-radius: 10px;
+      background: linear-gradient(135deg, #f59e0b, #fb7185);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 18px; color: #000;
+    }
+    .logo-text { font-size: 16px; font-weight: 700; }
+    .logo-sub  { font-size: 12px; color: var(--muted); margin-top: 1px; }
+    .header-badges { display: flex; gap: 10px; }
+    .badge {
+      padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 600;
+      letter-spacing: 0.5px; text-transform: uppercase;
+    }
+    .badge-cyan   { background: rgba(34,211,238,0.12); color: var(--cyan);   border: 1px solid rgba(34,211,238,0.25); }
+    .badge-amber  { background: rgba(245,158,11,0.12); color: var(--amber);  border: 1px solid rgba(245,158,11,0.25); }
+    .badge-violet { background: rgba(167,139,250,0.12); color: var(--violet); border: 1px solid rgba(167,139,250,0.25); }
+
+    .canvas { padding: 32px 28px 48px; overflow-y: auto; }
+
+    .layer-label {
+      font-size: 10px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 10px; margin-top: 28px; padding-left: 4px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .layer-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+    .module-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 4px; }
+
+    .module {
+      flex: 1; min-width: 140px;
+      padding: 16px 18px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      backdrop-filter: blur(10px);
+      cursor: pointer;
+      transition: all 0.25s ease;
+      position: relative; overflow: hidden;
+    }
+    .module:hover { border-color: var(--border-hover); transform: translateY(-2px); }
+    .module.active { border-color: var(--m-color) !important; box-shadow: 0 0 0 1px var(--m-color), 0 8px 32px rgba(0,0,0,0.4); }
+
+    .module-code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px; font-weight: 500;
+      color: var(--m-color, #6b7280);
+      margin-bottom: 6px; letter-spacing: 0.5px;
+    }
+    .module-name { font-size: 13px; font-weight: 600; line-height: 1.3; color: var(--text); }
+    .module-tasks { font-size: 10px; color: var(--muted); margin-top: 6px; }
+    .module-dot {
+      position: absolute; top: 12px; right: 12px;
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--m-color, #6b7280);
+      box-shadow: 0 0 6px var(--m-color, transparent);
+    }
+
+    .m-cyan   { --m-color: var(--cyan);    background: rgba(34,211,238,0.05) !important; }
+    .m-violet { --m-color: var(--violet);  background: rgba(167,139,250,0.05) !important; }
+    .m-indigo { --m-color: var(--indigo);  background: rgba(129,140,248,0.05) !important; }
+    .m-blue   { --m-color: var(--blue);    background: rgba(96,165,250,0.05) !important; }
+    .m-amber  { --m-color: var(--amber);   background: rgba(245,158,11,0.05) !important; }
+    .m-rose   { --m-color: var(--rose);    background: rgba(251,113,133,0.05) !important; }
+    .m-emerald{ --m-color: var(--emerald); background: rgba(52,211,153,0.05) !important; }
+
+    .flow-connector { display: flex; justify-content: center; align-items: center; height: 24px; gap: 4px; }
+    .flow-arrow { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+    .flow-line {
+      width: 1px; height: 10px;
+      background: linear-gradient(to bottom, var(--border), var(--border-hover));
+      animation: flowPulse 2s infinite;
+    }
+    .flow-tip {
+      width: 0; height: 0;
+      border-left: 4px solid transparent;
+      border-right: 4px solid transparent;
+      border-top: 5px solid var(--border-hover);
+    }
+    @keyframes flowPulse { 0%,100% { opacity: 0.4; } 50% { opacity: 1; } }
+
+    .cdp {
+      margin-top: 16px; padding: 22px 28px; border-radius: 16px;
+      border: 1px solid rgba(251,191,36,0.35);
+      background: linear-gradient(135deg, rgba(251,191,36,0.08), rgba(251,113,133,0.05));
+      display: flex; align-items: center; justify-content: space-between;
+      position: relative; overflow: hidden;
+    }
+    .cdp::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(90deg, transparent, rgba(251,191,36,0.04), transparent);
+      animation: shimmer 3s infinite;
+    }
+    @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+    .cdp-title {
+      font-size: 16px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase;
+      color: var(--gold); text-shadow: 0 0 24px rgba(251,191,36,0.5);
+    }
+    .cdp-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+    .cdp-stats { display: flex; gap: 24px; }
+    .cdp-stat { text-align: right; }
+    .cdp-stat-num { font-size: 22px; font-weight: 800; color: var(--gold); }
+    .cdp-stat-label { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+    .integrations {
+      margin-top: 16px; padding: 16px 20px; border-radius: 12px;
+      border: 1px solid var(--border); background: rgba(255,255,255,0.02);
+    }
+    .int-label {
+      font-size: 10px; font-weight: 600; letter-spacing: 1px;
+      text-transform: uppercase; color: var(--muted); margin-bottom: 12px;
+    }
+    .int-row { display: flex; gap: 10px; flex-wrap: wrap; }
+    .int-chip {
+      padding: 6px 14px; border-radius: 8px; border: 1px solid var(--border);
+      background: rgba(255,255,255,0.03); font-size: 11px; font-weight: 500; color: var(--muted);
+      display: flex; align-items: center; gap: 6px; transition: all 0.2s;
+    }
+    .int-chip:hover { border-color: var(--border-hover); color: var(--text); }
+    .int-chip .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--emerald); }
+
+    .sidebar {
+      border-left: 1px solid var(--border);
+      background: rgba(6,6,15,0.7);
+      backdrop-filter: blur(16px);
+      overflow-y: auto; padding: 28px 20px;
+    }
+    .sidebar-title { font-size: 13px; font-weight: 700; margin-bottom: 6px; color: var(--text); }
+    .sidebar-meta { font-size: 11px; color: var(--muted); margin-bottom: 20px; }
+
+    .search-wrap { position: relative; margin-bottom: 16px; }
+    .search-wrap input {
+      width: 100%; padding: 9px 14px 9px 34px;
+      border-radius: 8px; border: 1px solid var(--border);
+      background: rgba(255,255,255,0.04);
+      color: var(--text); font-size: 12px; font-family: inherit;
+      outline: none; transition: border-color 0.2s;
+    }
+    .search-wrap input:focus { border-color: var(--border-hover); }
+    .search-wrap input::placeholder { color: var(--muted); }
+    .search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 13px; pointer-events: none; }
+
+    .task-group { margin-bottom: 20px; }
+    .task-group-title {
+      font-size: 10px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 8px; padding-left: 2px;
+    }
+    .task-item {
+      display: flex; align-items: flex-start; gap: 9px;
+      padding: 8px 10px; border-radius: 8px;
+      cursor: pointer; transition: background 0.15s; margin-bottom: 2px;
+    }
+    .task-item:hover { background: rgba(255,255,255,0.04); }
+    .task-item.done .task-text { text-decoration: line-through; color: var(--muted); }
+    .task-cb {
+      width: 14px; height: 14px; border-radius: 4px;
+      border: 1.5px solid var(--border-hover);
+      flex-shrink: 0; margin-top: 1px;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s; cursor: pointer;
+    }
+    .task-item.done .task-cb { background: var(--emerald); border-color: var(--emerald); }
+    .task-cb-check { display: none; color: #000; font-size: 9px; font-weight: 700; }
+    .task-item.done .task-cb-check { display: block; }
+    .task-num { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--muted); flex-shrink: 0; margin-top: 2px; min-width: 28px; }
+    .task-text { font-size: 11px; line-height: 1.5; color: var(--text); }
+
+    .progress-wrap { margin-bottom: 20px; }
+    .progress-header { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-bottom: 6px; }
+    .progress-track { height: 4px; border-radius: 2px; background: rgba(255,255,255,0.06); overflow: hidden; }
+    .progress-fill {
+      height: 100%; border-radius: 2px;
+      background: linear-gradient(90deg, var(--emerald), var(--cyan));
+      transition: width 0.4s ease;
+    }
+
+    .detail-panel {
+      display: none;
+      position: fixed; right: 360px; top: 80px;
+      width: 300px;
+      background: rgba(10,10,20,0.95);
+      border: 1px solid var(--border-hover);
+      border-radius: 16px; padding: 20px;
+      backdrop-filter: blur(20px); z-index: 200;
+      box-shadow: 0 24px 80px rgba(0,0,0,0.6);
+    }
+    .detail-panel.visible { display: block; animation: popIn 0.2s ease; }
+    @keyframes popIn { from { opacity:0; transform: scale(0.96) translateY(8px); } to { opacity:1; transform: scale(1) translateY(0); } }
+    .dp-close { position: absolute; top: 12px; right: 14px; cursor: pointer; color: var(--muted); font-size: 16px; line-height: 1; }
+    .dp-close:hover { color: var(--text); }
+    .dp-code { font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 500; letter-spacing: 0.5px; margin-bottom: 6px; }
+    .dp-name { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
+    .dp-desc { font-size: 12px; color: var(--muted); line-height: 1.6; margin-bottom: 14px; }
+    .dp-deps { font-size: 10px; color: var(--muted); margin-bottom: 10px; }
+    .dp-deps span { color: var(--violet); }
+    .dp-tag-row { display: flex; gap: 6px; flex-wrap: wrap; }
+    .dp-tag { padding: 3px 9px; border-radius: 6px; font-size: 10px; font-weight: 500; background: rgba(255,255,255,0.06); color: var(--muted); }
+
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
+
+    @media (max-width: 900px) {
+      .shell { grid-template-columns: 1fr; }
+      .sidebar { border-left: none; border-top: 1px solid var(--border); }
+      .detail-panel { right: 16px; left: 16px; width: auto; }
+    }
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <header>
+    <div class="logo">
+      <div class="logo-mark">W</div>
+      <div>
+        <div class="logo-text">WHPS Digital Enterprise Platform</div>
+        <div class="logo-sub">System Architecture · 16 Modules · Central Data Platform</div>
+      </div>
+    </div>
+    <div class="header-badges">
+      <span class="badge badge-amber">96 Tasks</span>
+      <span class="badge badge-cyan">Stack-Agnostic</span>
+      <span class="badge badge-violet">v0.1 Blueprint</span>
+    </div>
+  </header>
+
+  <main class="canvas" id="canvas">
+
+    <div class="layer-label" style="margin-top:0">Customer-Facing Layer</div>
+    <div class="module-row">
+      <div class="module m-cyan" id="m-M01" onclick="openDetail('M01')">
+        <div class="module-dot"></div>
+        <div class="module-code">M01</div>
+        <div class="module-name">Public Website</div>
+        <div class="module-tasks">7 tasks · T72–T78</div>
+      </div>
+      <div class="module m-cyan" id="m-M02" onclick="openDetail('M02')">
+        <div class="module-dot"></div>
+        <div class="module-code">M02</div>
+        <div class="module-name">Customer App / My Account</div>
+        <div class="module-tasks">6 tasks · T25–T30</div>
+      </div>
+    </div>
+
+    <div class="flow-connector">
+      <div class="flow-arrow"><div class="flow-line"></div><div class="flow-tip"></div></div>
+      <div class="flow-arrow"><div class="flow-line"></div><div class="flow-tip"></div></div>
+      <div class="flow-arrow"><div class="flow-line"></div><div class="flow-tip"></div></div>
+    </div>
+
+    <div class="layer-label">Operational Core</div>
+    <div class="module-row">
+      <div class="module m-violet" id="m-M03" onclick="openDetail('M03')">
+        <div class="module-dot"></div>
+        <div class="module-code">M03</div>
+        <div class="module-name">CRM</div>
+        <div class="module-tasks">4 tasks · T26–T29</div>
+      </div>
+      <div class="module m-violet" id="m-M04" onclick="openDetail('M04')">
+        <div class="module-dot"></div>
+        <div class="module-code">M04</div>
+        <div class="module-name">Sales / POS</div>
+        <div class="module-tasks">5 tasks · T31–T35</div>
+      </div>
+      <div class="module m-violet" id="m-M05" onclick="openDetail('M05')">
+        <div class="module-dot"></div>
+        <div class="module-code">M05</div>
+        <div class="module-name">Inventory</div>
+        <div class="module-tasks">6 tasks · T14–T19</div>
+      </div>
+      <div class="module m-violet" id="m-M06" onclick="openDetail('M06')">
+        <div class="module-dot"></div>
+        <div class="module-code">M06</div>
+        <div class="module-name">Branch Management</div>
+        <div class="module-tasks">5 tasks · T20–T24</div>
+      </div>
+    </div>
+
+    <div class="flow-connector">
+      <div class="flow-arrow"><div class="flow-line"></div><div class="flow-tip"></div></div>
+      <div class="flow-arrow"><div class="flow-line"></div><div class="flow-tip"></div></div>
+      <div class="flow-arrow"><div class="flow-line"></div><div class="flow-tip"></div></div>
+    </div>
+
+    <div class="layer-label">Business Processes</div>
+    <div class="module-row">
+      <div class="module m-indigo" id="m-M07" onclick="openDetail('M07')">
+        <div class="module-dot"></div>
+        <div class="module-code">M07</div>
+        <div class="module-name">Franchise</div>
+        <div class="module-tasks">6 tasks · T45–T50</div>
+      </div>
+      <div class="module m-indigo" id="m-M08" onclick="openDetail('M08')">
+        <div class="module-dot"></div>
+        <div class="module-code">M08</div>
+        <div class="module-name">HR + Recruitment</div>
+        <div class="module-tasks">9 tasks · T36–T44</div>
+      </div>
+      <div class="module m-indigo" id="m-M09" onclick="openDetail('M09')">
+        <div class="module-dot"></div>
+        <div class="module-code">M09</div>
+        <div class="module-name">Finance</div>
+        <div class="module-tasks">5 tasks · T51–T55</div>
+      </div>
+      <div class="module m-indigo" id="m-M10" onclick="openDetail('M10')">
+        <div class="module-dot"></div>
+        <div class="module-code">M10</div>
+        <div class="module-name">Procurement</div>
+        <div class="module-tasks">4 tasks · T56–T59</div>
+      </div>
+    </div>
+
+    <div class="flow-connector">
+      <div class="flow-arrow"><div class="flow-line"></div><div class="flow-tip"></div></div>
+      <div class="flow-arrow"><div class="flow-line"></div><div class="flow-tip"></div></div>
+      <div class="flow-arrow"><div class="flow-line"></div><div class="flow-tip"></div></div>
+    </div>
+
+    <div class="layer-label">Specialist Operations</div>
+    <div class="module-row">
+      <div class="module m-blue" id="m-M11" onclick="openDetail('M11')">
+        <div class="module-dot"></div>
+        <div class="module-code">M11</div>
+        <div class="module-name">Repairs</div>
+        <div class="module-tasks">4 tasks · T60–T63</div>
+      </div>
+      <div class="module m-blue" id="m-M12" onclick="openDetail('M12')">
+        <div class="module-dot"></div>
+        <div class="module-code">M12</div>
+        <div class="module-name">Custom Jewellery</div>
+        <div class="module-tasks">4 tasks · T64–T67</div>
+      </div>
+      <div class="module m-blue" id="m-M13" onclick="openDetail('M13')">
+        <div class="module-dot"></div>
+        <div class="module-code">M13</div>
+        <div class="module-name">Vendors / Karigars</div>
+        <div class="module-tasks">4 tasks · T68–T71</div>
+      </div>
+    </div>
+
+    <div class="flow-connector">
+      <div class="flow-arrow"><div class="flow-line"></div><div class="flow-tip"></div></div>
+      <div class="flow-arrow"><div class="flow-line"></div><div class="flow-tip"></div></div>
+      <div class="flow-arrow"><div class="flow-line"></div><div class="flow-tip"></div></div>
+    </div>
+
+    <div class="layer-label">Intelligence Layer</div>
+    <div class="module-row">
+      <div class="module m-amber" id="m-M14" onclick="openDetail('M14')" style="flex:2">
+        <div class="module-dot"></div>
+        <div class="module-code">M14</div>
+        <div class="module-name">Management Command Center</div>
+        <div class="module-tasks">5 tasks · T79–T83 · Read layer over all modules</div>
+      </div>
+      <div class="module m-amber" id="m-M15" onclick="openDetail('M15')" style="flex:2">
+        <div class="module-dot"></div>
+        <div class="module-code">M15</div>
+        <div class="module-name">AI Intelligence Layer</div>
+        <div class="module-tasks">6 tasks · T84–T89 · Decision-support only</div>
+      </div>
+    </div>
+
+    <div class="flow-connector">
+      <div class="flow-arrow"><div class="flow-line"></div><div class="flow-tip"></div></div>
+    </div>
+
+    <div class="layer-label">Foundation</div>
+    <div class="module-row">
+      <div class="module m-rose" id="m-M16" onclick="openDetail('M16')">
+        <div class="module-dot"></div>
+        <div class="module-code">M16</div>
+        <div class="module-name">Central Admin</div>
+        <div class="module-tasks">5 tasks · T09–T13 · Identity · RBAC · Audit · Master Data · Workflows</div>
+      </div>
+    </div>
+
+    <div class="flow-connector">
+      <div class="flow-arrow"><div class="flow-line"></div><div class="flow-tip"></div></div>
+      <div class="flow-arrow"><div class="flow-line"></div><div class="flow-tip"></div></div>
+    </div>
+
+    <div class="cdp">
+      <div>
+        <div class="cdp-title">Central Data Platform</div>
+        <div class="cdp-sub">Shared database — no isolated silos per module</div>
+      </div>
+      <div class="cdp-stats">
+        <div class="cdp-stat"><div class="cdp-stat-num">16</div><div class="cdp-stat-label">Modules</div></div>
+        <div class="cdp-stat"><div class="cdp-stat-num">96</div><div class="cdp-stat-label">Build Tasks</div></div>
+        <div class="cdp-stat"><div class="cdp-stat-num">8</div><div class="cdp-stat-label">Open Q's</div></div>
+      </div>
+    </div>
+
+    <div class="integrations">
+      <div class="int-label">External System Integration Interfaces</div>
+      <div class="int-row">
+        <div class="int-chip"><span class="dot"></span>ERP / Accounting (T55)</div>
+        <div class="int-chip"><span class="dot"></span>POS System (T35)</div>
+        <div class="int-chip"><span class="dot"></span>WhatsApp Business API (T93)</div>
+        <div class="int-chip"><span class="dot"></span>Payment Gateway (T94)</div>
+        <div class="int-chip"><span class="dot"></span>Biometric / Attendance (T95)</div>
+        <div class="int-chip"><span class="dot"></span>Notification Channels (T96)</div>
+      </div>
+    </div>
+
+    <div class="integrations">
+      <div class="int-label">Foundation Build Tasks (T01–T08)</div>
+      <div class="int-row">
+        <div class="int-chip">T01 · Central Data Entities</div>
+        <div class="int-chip">T02 · Identity &amp; User Model</div>
+        <div class="int-chip">T03 · RBAC Matrix</div>
+        <div class="int-chip">T04 · Audit Log Schema</div>
+        <div class="int-chip">T05 · Approval Workflow Engine</div>
+        <div class="int-chip">T06 · Notification Architecture</div>
+        <div class="int-chip">T07 · Master Data Entities</div>
+        <div class="int-chip">T08 · Repo Structure</div>
+      </div>
+    </div>
+
+  </main>
+
+  <aside class="sidebar">
+    <div class="sidebar-title">Build Task Tracker</div>
+    <div class="sidebar-meta">96 tasks · ordered by dependency · click to mark done</div>
+
+    <div class="progress-wrap">
+      <div class="progress-header">
+        <span>Progress</span>
+        <span id="prog-label">0 / 96</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" id="prog-fill" style="width:0%"></div>
+      </div>
+    </div>
+
+    <div class="search-wrap">
+      <span class="search-icon">&#9906;</span>
+      <input type="text" placeholder="Search tasks..." id="taskSearch" oninput="filterTasks(this.value)" />
+    </div>
+
+    <div id="task-list"></div>
+  </aside>
+
+</div>
+
+<div class="detail-panel" id="detailPanel">
+  <div class="dp-close" onclick="closeDetail()">&#10005;</div>
+  <div class="dp-code" id="dp-code"></div>
+  <div class="dp-name" id="dp-name"></div>
+  <div class="dp-desc" id="dp-desc"></div>
+  <div class="dp-deps" id="dp-deps"></div>
+  <div class="dp-tag-row" id="dp-tags"></div>
+</div>
+
+<script>
+const MODULES = {
+  M01: { name:'Public Website', color:'#22d3ee', desc:'Product discovery, availability, appointments, careers, franchise applications, AI visual search and lead capture. Entry point for all external users.', deps:'M02, M03, M05', tags:['Customer-Facing','Lead Capture','AI Search','Appointments'] },
+  M02: { name:'Customer App / My Account', color:'#22d3ee', desc:'Customer portal for orders, reservations, schemes, loyalty points, repairs tracking, invoices, certificates and AI assistant.', deps:'T02 (Identity)', tags:['Customer Portal','Loyalty','Schemes','Self-Service'] },
+  M03: { name:'CRM', color:'#a78bfa', desc:'Unified lead lifecycle from all sources (website, WhatsApp, walk-in, referral). Customer 360 view, follow-ups, quotations, sales intelligence.', deps:'M02, T02', tags:['Leads','Customer 360','Follow-ups','Quotations'] },
+  M04: { name:'Sales / POS', color:'#a78bfa', desc:'Sale transactions, discount approval workflows, exchange & returns, invoice and certificate generation. Integrates with existing POS via interface contract.', deps:'M05, M02, M03', tags:['Transactions','Discounts','Exchange','POS Integration'] },
+  M05: { name:'Inventory', color:'#a78bfa', desc:'Digital Passport per item (HUID, metal, weight, purity, making charges, images). Full lifecycle: vault to showcase to sold to returned to repaired. Transfers, reconciliation, ageing, anomaly detection.', deps:'T07 (Master Data), M06 (Branches)', tags:['Digital Passport','HUID','Vault','Reconciliation','Transfers'] },
+  M06: { name:'Branch Management', color:'#a78bfa', desc:'Branch entity, health metrics, staff assignments, targets, performance and complaint management. Corporate sees all; Store Manager sees own branch only.', deps:'T07 (Master Data)', tags:['Multi-Branch','RBAC','Targets','KPIs','Complaints'] },
+  M07: { name:'Franchise', color:'#818cf8', desc:'Full business process: applicant to evaluation to location review to due diligence to agreement to onboarding to operating franchise to corporate monitoring.', deps:'T02, T05, T06, M06', tags:['Applicants','Due Diligence','Agreements','Monitoring'] },
+  M08: { name:'HR + Recruitment', color:'#818cf8', desc:'End-to-end: job/internship posting, criteria screening, assessment, interviews, offer, onboarding, employee, attendance, leave, payroll, performance, training.', deps:'T02, T06', tags:['Recruitment','Onboarding','Attendance','Payroll','Performance'] },
+  M09: { name:'Finance', color:'#818cf8', desc:'Branch P&L, product profitability, reconciliation, discount/refund tracking. Integrates with existing ERP/accounting — does not replace it by default.', deps:'M04, M05, M06', tags:['P&L','Profitability','Reconciliation','ERP Integration'] },
+  M10: { name:'Procurement', color:'#818cf8', desc:'Purchase orders, demand-driven purchasing rules, vendor evaluation, goods receipt workflow. Connected to inventory demand signals.', deps:'M05, M13', tags:['Purchase Orders','Demand Signals','Vendor Eval','GRN'] },
+  M11: { name:'Repairs', color:'#60a5fa', desc:'Repair job entity and lifecycle state machine. Karigar assignment, customer notification triggers, status tracking for each repair item.', deps:'M02, M05', tags:['Repair Jobs','State Machine','Karigar','Notifications'] },
+  M12: { name:'Custom Jewellery', color:'#60a5fa', desc:'Custom order intake, design approval workflow, production milestone tracking, customer approval checkpoints at each stage.', deps:'M02, M11, M13', tags:['Custom Orders','Design Approval','Milestones','Customer Sign-off'] },
+  M13: { name:'Vendors / Karigars', color:'#60a5fa', desc:'Vendor and Karigar entity, work orders, quality assessments and payment tracking. Shared between Repairs, Custom Jewellery and Procurement.', deps:'T02 (Identity)', tags:['Vendors','Karigars','Work Orders','QA','Payments'] },
+  M14: { name:'Management Command Center', color:'#f59e0b', desc:'Read layer over all modules. Network KPIs, branch/franchise comparisons, drill-down from network to branch to employee to item, risk/opportunity alerts, executive reports.', deps:'All modules (read-only)', tags:['KPIs','Drill-Down','Alerts','Executive','Read-Only'] },
+  M15: { name:'AI Intelligence Layer', color:'#f59e0b', desc:'Sits above reliable operational data. Demand forecasting, inventory anomaly detection, customer intent prediction, executive insights. Decision-support only — no autonomous high-value actions.', deps:'All modules (data consumer)', tags:['Forecasting','Anomaly Detection','Recommendations','Human-Approved'] },
+  M16: { name:'Central Admin', color:'#fb7185', desc:'Foundation layer. Identity, RBAC matrix, master data, approval chain builder, audit log viewer. Everything else depends on this.', deps:'T01-T07 (Foundation tasks)', tags:['Identity','RBAC','Audit','Master Data','Approval Chains'] }
+};
+
+const ALL_TASKS = [
+  {id:'T01',label:'Central Data Platform entity groups',group:'Foundation'},
+  {id:'T02',label:'Identity & User model',group:'Foundation'},
+  {id:'T03',label:'RBAC matrix (16 modules x all roles)',group:'Foundation'},
+  {id:'T04',label:'Audit Log schema',group:'Foundation'},
+  {id:'T05',label:'Approval Workflow engine',group:'Foundation'},
+  {id:'T06',label:'Notification architecture',group:'Foundation'},
+  {id:'T07',label:'Master Data entities',group:'Foundation'},
+  {id:'T08',label:'Repository & monorepo structure',group:'Foundation'},
+  {id:'T09',label:'User management screens',group:'Central Admin'},
+  {id:'T10',label:'Role & permission management UI',group:'Central Admin'},
+  {id:'T11',label:'Master data management UI',group:'Central Admin'},
+  {id:'T12',label:'Approval chain builder',group:'Central Admin'},
+  {id:'T13',label:'Audit log viewer',group:'Central Admin'},
+  {id:'T14',label:'Digital Passport entity (HUID, metal, purity, images)',group:'Inventory'},
+  {id:'T15',label:'Item lifecycle state machine',group:'Inventory'},
+  {id:'T16',label:'Vault & showcase mapping',group:'Inventory'},
+  {id:'T17',label:'Stock reconciliation workflow',group:'Inventory'},
+  {id:'T18',label:'Transfer workflow (branch to branch)',group:'Inventory'},
+  {id:'T19',label:'Ageing & anomaly detection rules',group:'Inventory'},
+  {id:'T20',label:'Branch entity model',group:'Branch Management'},
+  {id:'T21',label:'Branch health metrics definition',group:'Branch Management'},
+  {id:'T22',label:'Staff-branch assignment model',group:'Branch Management'},
+  {id:'T23',label:'Branch target & performance model',group:'Branch Management'},
+  {id:'T24',label:'Complaint management workflow',group:'Branch Management'},
+  {id:'T25',label:'Customer 360 entity (profile, segments, lifecycle)',group:'CRM / Customer'},
+  {id:'T26',label:'Lead entity + source tracking',group:'CRM / Customer'},
+  {id:'T27',label:'Appointment model',group:'CRM / Customer'},
+  {id:'T28',label:'Quotation & follow-up model',group:'CRM / Customer'},
+  {id:'T29',label:'Loyalty & scheme model',group:'CRM / Customer'},
+  {id:'T30',label:'Customer portal screens',group:'CRM / Customer'},
+  {id:'T31',label:'Sale transaction entity',group:'Sales / POS'},
+  {id:'T32',label:'Discount & approval workflow',group:'Sales / POS'},
+  {id:'T33',label:'Exchange & return workflow',group:'Sales / POS'},
+  {id:'T34',label:'Invoice & certificate generation',group:'Sales / POS'},
+  {id:'T35',label:'POS integration interface',group:'Sales / POS'},
+  {id:'T36',label:'Job posting entity',group:'HR + Recruitment'},
+  {id:'T37',label:'Application & screening workflow',group:'HR + Recruitment'},
+  {id:'T38',label:'Assessment & interview tracking',group:'HR + Recruitment'},
+  {id:'T39',label:'Offer & onboarding workflow',group:'HR + Recruitment'},
+  {id:'T40',label:'Employee entity (from recruited applicant)',group:'HR + Recruitment'},
+  {id:'T41',label:'Attendance & leave model',group:'HR + Recruitment'},
+  {id:'T42',label:'Payroll model',group:'HR + Recruitment'},
+  {id:'T43',label:'Performance review model',group:'HR + Recruitment'},
+  {id:'T44',label:'Training record model',group:'HR + Recruitment'},
+  {id:'T45',label:'Franchise applicant entity',group:'Franchise'},
+  {id:'T46',label:'Application to evaluation to due diligence workflow',group:'Franchise'},
+  {id:'T47',label:'Location intelligence model',group:'Franchise'},
+  {id:'T48',label:'Agreement entity',group:'Franchise'},
+  {id:'T49',label:'Franchise onboarding workflow',group:'Franchise'},
+  {id:'T50',label:'Ongoing franchise monitoring model',group:'Franchise'},
+  {id:'T51',label:'Branch P&L model',group:'Finance'},
+  {id:'T52',label:'Product profitability model',group:'Finance'},
+  {id:'T53',label:'Reconciliation workflow',group:'Finance'},
+  {id:'T54',label:'Discount & refund tracking',group:'Finance'},
+  {id:'T55',label:'ERP/Accounting integration interface',group:'Finance'},
+  {id:'T56',label:'Purchase order entity',group:'Procurement'},
+  {id:'T57',label:'Demand-driven purchasing rules',group:'Procurement'},
+  {id:'T58',label:'Vendor evaluation model',group:'Procurement'},
+  {id:'T59',label:'Goods receipt workflow',group:'Procurement'},
+  {id:'T60',label:'Repair job entity',group:'Repairs'},
+  {id:'T61',label:'Repair lifecycle state machine',group:'Repairs'},
+  {id:'T62',label:'Karigar assignment model',group:'Repairs'},
+  {id:'T63',label:'Customer notification triggers',group:'Repairs'},
+  {id:'T64',label:'Custom order entity',group:'Custom Jewellery'},
+  {id:'T65',label:'Design approval workflow',group:'Custom Jewellery'},
+  {id:'T66',label:'Production milestone tracking',group:'Custom Jewellery'},
+  {id:'T67',label:'Customer approval checkpoint',group:'Custom Jewellery'},
+  {id:'T68',label:'Vendor / Karigar entity',group:'Vendors / Karigars'},
+  {id:'T69',label:'Work order model',group:'Vendors / Karigars'},
+  {id:'T70',label:'Quality assessment model',group:'Vendors / Karigars'},
+  {id:'T71',label:'Vendor payment tracking model',group:'Vendors / Karigars'},
+  {id:'T72',label:'Product discovery API spec',group:'Public Website'},
+  {id:'T73',label:'Availability & wishlist model',group:'Public Website'},
+  {id:'T74',label:'Appointment booking flow',group:'Public Website'},
+  {id:'T75',label:'Career & internship listing',group:'Public Website'},
+  {id:'T76',label:'Franchise application entry point',group:'Public Website'},
+  {id:'T77',label:'AI visual search interface',group:'Public Website'},
+  {id:'T78',label:'Lead capture to CRM handoff',group:'Public Website'},
+  {id:'T79',label:'Network KPI aggregation model',group:'Management Command Center'},
+  {id:'T80',label:'Branch / franchise comparison view',group:'Management Command Center'},
+  {id:'T81',label:'Drill-down hierarchy spec',group:'Management Command Center'},
+  {id:'T82',label:'Risk & opportunity alert model',group:'Management Command Center'},
+  {id:'T83',label:'Executive report definition',group:'Management Command Center'},
+  {id:'T84',label:'AI signal model (data feeds)',group:'AI Intelligence'},
+  {id:'T85',label:'AI recommendation entity (human-approved)',group:'AI Intelligence'},
+  {id:'T86',label:'Demand forecasting spec',group:'AI Intelligence'},
+  {id:'T87',label:'Inventory anomaly detection spec',group:'AI Intelligence'},
+  {id:'T88',label:'Customer intent prediction spec',group:'AI Intelligence'},
+  {id:'T89',label:'Management AI insight spec',group:'AI Intelligence'},
+  {id:'T90',label:'Authentication flow (login, MFA, JWT)',group:'Cross-Cutting'},
+  {id:'T91',label:'API gateway / rate limiting design',group:'Cross-Cutting'},
+  {id:'T92',label:'File storage model (images, docs, certs)',group:'Cross-Cutting'},
+  {id:'T93',label:'WhatsApp integration interface',group:'Cross-Cutting'},
+  {id:'T94',label:'Payment gateway integration interface',group:'Cross-Cutting'},
+  {id:'T95',label:'Biometric / attendance device integration',group:'Cross-Cutting'},
+  {id:'T96',label:'Notification delivery channels',group:'Cross-Cutting'},
+];
+
+const STORAGE_KEY = 'whps_tasks_done_v1';
+let doneTasks = new Set(JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'));
+
+function saveDone() { localStorage.setItem(STORAGE_KEY, JSON.stringify([...doneTasks])); }
+
+function renderTasks(filter) {
+  filter = (filter || '').toLowerCase();
+  const list = document.getElementById('task-list');
+  list.innerHTML = '';
+  const groups = {};
+  ALL_TASKS.forEach(t => {
+    if (filter && !t.label.toLowerCase().includes(filter) && !t.id.toLowerCase().includes(filter) && !t.group.toLowerCase().includes(filter)) return;
+    if (!groups[t.group]) groups[t.group] = [];
+    groups[t.group].push(t);
+  });
+  Object.entries(groups).forEach(([grp, tasks]) => {
+    const g = document.createElement('div');
+    g.className = 'task-group';
+    g.innerHTML = '<div class="task-group-title">' + grp + '</div>';
+    tasks.forEach(t => {
+      const isDone = doneTasks.has(t.id);
+      const item = document.createElement('div');
+      item.className = 'task-item' + (isDone ? ' done' : '');
+      item.id = 'ti-' + t.id;
+      item.innerHTML =
+        '<div class="task-cb" onclick="toggleTask(\'' + t.id + '\',event)">' +
+          '<span class="task-cb-check">&#10003;</span>' +
+        '</div>' +
+        '<div class="task-num">' + t.id + '</div>' +
+        '<div class="task-text">' + t.label + '</div>';
+      g.appendChild(item);
+    });
+    list.appendChild(g);
+  });
+  updateProgress();
+}
+
+function toggleTask(id, e) {
+  e.stopPropagation();
+  if (doneTasks.has(id)) doneTasks.delete(id);
+  else doneTasks.add(id);
+  saveDone();
+  renderTasks(document.getElementById('taskSearch').value);
+}
+
+function filterTasks(val) { renderTasks(val); }
+
+function updateProgress() {
+  const done = doneTasks.size;
+  const total = ALL_TASKS.length;
+  document.getElementById('prog-label').textContent = done + ' / ' + total;
+  document.getElementById('prog-fill').style.width = ((done/total)*100) + '%';
+}
+
+function openDetail(id) {
+  const m = MODULES[id];
+  if (!m) return;
+  document.querySelectorAll('.module').forEach(el => el.classList.remove('active'));
+  document.getElementById('m-' + id).classList.add('active');
+  document.getElementById('dp-code').textContent = id;
+  document.getElementById('dp-code').style.color = m.color;
+  document.getElementById('dp-name').textContent = m.name;
+  document.getElementById('dp-desc').textContent = m.desc;
+  document.getElementById('dp-deps').innerHTML = '<strong>Depends on:</strong> <span>' + m.deps + '</span>';
+  document.getElementById('dp-tags').innerHTML = m.tags.map(t => '<span class="dp-tag">' + t + '</span>').join('');
+  document.getElementById('detailPanel').classList.add('visible');
+}
+
+function closeDetail() {
+  document.getElementById('detailPanel').classList.remove('visible');
+  document.querySelectorAll('.module').forEach(el => el.classList.remove('active'));
+}
+
+document.addEventListener('click', function(e) {
+  const panel = document.getElementById('detailPanel');
+  if (panel.classList.contains('visible') && !panel.contains(e.target) && !e.target.closest('.module')) {
+    closeDetail();
+  }
+});
+
+renderTasks();
+</script>
+</body>
+</html>

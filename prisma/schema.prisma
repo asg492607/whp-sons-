@@ -1,0 +1,1844 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                 String    @id @default(cuid())
+  name               String
+  email              String?   @unique
+  phone              String?   @unique
+  passwordHash       String?
+  avatarUrl          String?
+  type               String    @default("INTERNAL")
+  status             String    @default("ACTIVE")
+  emailVerifiedAt    DateTime?
+  mfaEnabled         Boolean   @default(false)
+  lastLoginAt        DateTime?
+  forcePasswordReset Boolean   @default(false)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  isDeleted          Boolean   @default(false)
+  deletedAt          DateTime?
+
+  roles         UserRole[]
+  sessions      Session[]
+  customer      Customer?
+  employee      Employee?
+  vendor        Vendor?
+  notifications Notification[]
+  auditEvents   AuditEvent[]
+  @@map("users")
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  scope       String   @default("BRANCH")
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  isDeleted   Boolean  @default(false)
+
+  permissions RolePermission[]
+  userRoles   UserRole[]
+  @@map("roles")
+}
+
+model Permission {
+  id          String   @id @default(cuid())
+  module      String
+  resource    String
+  action      String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  roles RolePermission[]
+
+  @@unique([module, resource, action])
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           String   @id @default(cuid())
+  roleId       String
+  permissionId String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  role       Role       @relation(fields: [roleId], references: [id])
+  permission Permission @relation(fields: [permissionId], references: [id])
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  id        String    @id @default(cuid())
+  userId    String
+  roleId    String
+  branchId  String?
+  grantedBy String
+  grantedAt DateTime  @default(now())
+  expiresAt DateTime?
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  user   User    @relation(fields: [userId], references: [id])
+  role   Role    @relation(fields: [roleId], references: [id])
+  branch Branch? @relation(fields: [branchId], references: [id])
+  @@map("user_roles")
+}
+
+model Session {
+  id           String    @id @default(cuid())
+  userId       String
+  tokenHash    String    @unique
+  deviceName   String?
+  ipAddress    String?
+  userAgent    String?
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  lastActiveAt DateTime  @default(now())
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+  @@map("sessions")
+}
+
+model Company {
+  id                   String   @id @default(cuid())
+  legalName            String
+  tradeName            String
+  gstNumber            String?
+  panNumber            String?
+  logoUrl              String?
+  registeredAddress    String?
+  corporatePhone       String?
+  corporateEmail       String?
+  fiscalYearStartMonth Int      @default(4)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  @@map("company")
+}
+
+model Branch {
+  id                   String    @id @default(cuid())
+  name                 String
+  code                 String    @unique
+  type                 String    @default("CORPORATE")
+  status               String    @default("ACTIVE")
+  address              String?
+  city                 String?
+  state                String?
+  pincode              String?
+  latitude             Float?
+  longitude            Float?
+  phone                String?
+  email                String?
+  managerId            String?
+  openedOn             DateTime?
+  gstNumber            String?
+  targetMonthlyRevenue Float?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  isDeleted            Boolean   @default(false)
+  deletedAt            DateTime?
+
+  userRoles          UserRole[]
+  employees          Employee[]
+  inventoryLocations InventoryLocation[]
+  inventoryStock     InventoryStock[]
+  leads              Lead[]
+  appointments       Appointment[]
+  sales              Sale[]
+  repairTickets      RepairTicket[]
+  customOrders       CustomOrder[]
+  jobs               Job[]
+  branchFinancials   BranchFinancial[]
+  stockTransfersFrom StockTransfer[] @relation("TransferFrom")
+  stockTransfersTo   StockTransfer[] @relation("TransferTo")
+  franchiseReports   FranchiseMonthlyReport[]
+  @@map("branches")
+}
+
+model Department {
+  id        String   @id @default(cuid())
+  name      String
+  parentId  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  parent       Department?  @relation("SubDept", fields: [parentId], references: [id])
+  children     Department[] @relation("SubDept")
+  designations Designation[]
+  employees    Employee[]
+  jobs         Job[]
+  @@map("departments")
+}
+
+model Designation {
+  id           String   @id @default(cuid())
+  name         String
+  departmentId String
+  grade        String?
+  minSalary    Float?
+  maxSalary    Float?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  department Department @relation(fields: [departmentId], references: [id])
+  employees  Employee[]
+  jobs       Job[]
+  offers     Offer[]
+  @@map("designations")
+}
+
+model Shift {
+  id           String   @id @default(cuid())
+  branchId     String?
+  name         String
+  startTime    String
+  endTime      String
+  graceMinutes Int      @default(10)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  attendance Attendance[]
+  @@map("shifts")
+}
+
+model Customer {
+  id                String    @id @default(cuid())
+  userId            String?   @unique
+  name              String
+  phone             String    @unique
+  alternatePhone    String?
+  email             String?
+  dob               DateTime?
+  anniversary       DateTime?
+  gender            String?
+  kycStatus         String    @default("PENDING")
+  loyaltyTier       String?
+  loyaltyPoints     Int       @default(0)
+  customerSince     DateTime?
+  primaryBranchId   String?
+  acquisitionSource String?
+  segment           String?
+  notes             String?
+  isBlocked         Boolean   @default(false)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  isDeleted         Boolean   @default(false)
+  deletedAt         DateTime?
+
+  user              User?       @relation(fields: [userId], references: [id])
+  addresses         CustomerAddress[]
+  leads             Lead[]
+  appointments      Appointment[]
+  quotations        Quotation[]
+  sales             Sale[]
+  repairTickets     RepairTicket[]
+  customOrders      CustomOrder[]
+  reservations      Reservation[]
+  schemeEnrollments CustomerSchemeEnrollment[]
+  @@map("customers")
+}
+
+model CustomerAddress {
+  id         String   @id @default(cuid())
+  customerId String
+  label      String?
+  type       String   @default("HOME")
+  line1      String
+  line2      String?
+  city       String
+  state      String
+  pincode    String
+  country    String   @default("India")
+  isDefault  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  customer Customer @relation(fields: [customerId], references: [id])
+  @@map("customer_addresses")
+}
+
+model Category {
+  id           String   @id @default(cuid())
+  name         String
+  slug         String   @unique
+  parentId     String?
+  iconUrl      String?
+  displayOrder Int      @default(0)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  parent   Category?  @relation("Subcategory", fields: [parentId], references: [id])
+  children Category[] @relation("Subcategory")
+  products Product[]
+  requisitions PurchaseRequisition[]
+  @@map("categories")
+}
+
+model Collection {
+  id            String    @id @default(cuid())
+  name          String
+  theme         String?
+  coverImageUrl String?
+  launchDate    DateTime?
+  endDate       DateTime?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  products Product[]
+  @@map("collections")
+}
+
+model Product {
+  id               String    @id @default(cuid())
+  sku              String    @unique
+  name             String
+  categoryId       String
+  collectionId     String?
+  metalType        String
+  purity           String
+  makingChargeType String    @default("PERCENT_ON_WEIGHT")
+  makingChargeValue Float    @default(0)
+  wastagePercent   Float?
+  hasStones        Boolean   @default(false)
+  stoneDescription String?
+  gender           String?
+  occasionTags     String?
+  description      String?
+  status           String    @default("ACTIVE")
+  isCustomizable   Boolean   @default(false)
+  minWeightGm      Float?
+  maxWeightGm      Float?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  isDeleted        Boolean   @default(false)
+  deletedAt        DateTime?
+
+  category   Category    @relation(fields: [categoryId], references: [id])
+  collection Collection? @relation(fields: [collectionId], references: [id])
+  items      JewelleryItem[]
+  media      ProductMedia[]
+  @@map("products")
+}
+
+model JewelleryItem {
+  id               String    @id @default(cuid())
+  productId        String
+  itemCode         String    @unique
+  huid             String?   @unique
+  batchNo          String?
+  metalType        String
+  purity           String
+  grossWeightGm    Float
+  netWeightGm      Float
+  stoneWeightGm    Float?
+  stoneDescription String?
+  makingCharge     Float     @default(0)
+  wastagePercent   Float?
+  tagPrice         Float     @default(0)
+  costPrice        Float?
+  status           String    @default("IN_STOCK")
+  branchId         String
+  locationId       String?
+  vendorId         String?
+  receivedAt       DateTime  @default(now())
+  isHallmarked     Boolean   @default(false)
+  hallmarkedAt     DateTime?
+  isCertified      Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  isDeleted        Boolean   @default(false)
+  deletedAt        DateTime?
+
+  product       Product            @relation(fields: [productId], references: [id])
+  location      InventoryLocation? @relation(fields: [locationId], references: [id])
+  media         ProductMedia[]
+  certificates  Certificate[]
+  stock         InventoryStock?
+  movements     InventoryMovement[]
+  reservations  Reservation[]
+  transferItems StockTransferItem[]
+  saleItems     SaleItem[]
+  repairTickets RepairTicket[]
+  hallmarkRecord HallmarkRecord?
+  grnItems      GoodsReceiptItem[]
+  @@map("jewellery_items")
+}
+
+model ProductMedia {
+  id           String   @id @default(cuid())
+  productId    String?
+  itemId       String?
+  url          String
+  type         String   @default("IMAGE")
+  isPrimary    Boolean  @default(false)
+  displayOrder Int      @default(0)
+  uploadedBy   String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  product Product?       @relation(fields: [productId], references: [id])
+  item    JewelleryItem? @relation(fields: [itemId], references: [id])
+  @@map("product_media")
+}
+
+model Certificate {
+  id          String   @id @default(cuid())
+  itemId      String
+  type        String
+  certNumber  String
+  issuedBy    String
+  issuedAt    DateTime
+  validUntil  DateTime?
+  documentUrl String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  item JewelleryItem @relation(fields: [itemId], references: [id])
+  @@map("certificates")
+}
+
+model HallmarkRecord {
+  id             String   @id @default(cuid())
+  itemId         String   @unique
+  huid           String
+  purityVerified String
+  centerCode     String?
+  hallmarkedAt   DateTime
+  certificateUrl String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  item JewelleryItem @relation(fields: [itemId], references: [id])
+  @@map("hallmark_records")
+}
+
+model InventoryLocation {
+  id           String   @id @default(cuid())
+  branchId     String
+  name         String
+  code         String
+  type         String   @default("VAULT")
+  capacity     Int?
+  currentCount Int      @default(0)
+  status       String   @default("ACTIVE")
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  isDeleted    Boolean  @default(false)
+
+  branch        Branch          @relation(fields: [branchId], references: [id])
+  items         JewelleryItem[]
+  stock         InventoryStock[]
+  movementsFrom InventoryMovement[] @relation("MovedFrom")
+  movementsTo   InventoryMovement[] @relation("MovedTo")
+
+  @@unique([branchId, code])
+  @@map("inventory_locations")
+}
+
+model InventoryStock {
+  id         String   @id @default(cuid())
+  itemId     String   @unique
+  branchId   String
+  locationId String?
+  status     String   @default("IN_STOCK")
+  asOf       DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  item     JewelleryItem      @relation(fields: [itemId], references: [id])
+  branch   Branch             @relation(fields: [branchId], references: [id])
+  location InventoryLocation? @relation(fields: [locationId], references: [id])
+  @@map("inventory_stock")
+}
+
+model InventoryMovement {
+  id             String   @id @default(cuid())
+  itemId         String
+  movementType   String
+  fromBranchId   String?
+  toBranchId     String?
+  fromLocationId String?
+  toLocationId   String?
+  referenceType  String?
+  referenceId    String?
+  movedBy        String
+  movedAt        DateTime @default(now())
+  notes          String?
+  itemValueAtMove Float?
+  createdAt      DateTime @default(now())
+
+  item         JewelleryItem      @relation(fields: [itemId], references: [id])
+  fromLocation InventoryLocation? @relation("MovedFrom", fields: [fromLocationId], references: [id])
+  toLocation   InventoryLocation? @relation("MovedTo", fields: [toLocationId], references: [id])
+  @@map("inventory_movements")
+}
+
+model Reservation {
+  id            String   @id @default(cuid())
+  itemId        String
+  customerId    String
+  branchId      String
+  leadId        String?
+  reservedBy    String
+  reservedAt    DateTime @default(now())
+  expiresAt     DateTime
+  status        String   @default("ACTIVE")
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  item     JewelleryItem @relation(fields: [itemId], references: [id])
+  customer Customer      @relation(fields: [customerId], references: [id])
+  @@map("reservations")
+}
+
+model StockTransfer {
+  id           String    @id @default(cuid())
+  transferNo   String    @unique
+  fromBranchId String
+  toBranchId   String
+  initiatedBy  String
+  approvedBy   String?
+  status       String    @default("DRAFT")
+  dispatchedAt DateTime?
+  receivedAt   DateTime?
+  notes        String?
+  totalItems   Int       @default(0)
+  totalValue   Float?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  fromBranch Branch              @relation("TransferFrom", fields: [fromBranchId], references: [id])
+  toBranch   Branch              @relation("TransferTo", fields: [toBranchId], references: [id])
+  items      StockTransferItem[]
+  @@map("stock_transfers")
+}
+
+model StockTransferItem {
+  id             String   @id @default(cuid())
+  transferId     String
+  itemId         String
+  dispatchStatus String   @default("PENDING")
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  transfer StockTransfer @relation(fields: [transferId], references: [id])
+  item     JewelleryItem @relation(fields: [itemId], references: [id])
+  @@map("stock_transfer_items")
+}
+
+model Lead {
+  id              String    @id @default(cuid())
+  customerId      String?
+  branchId        String
+  name            String
+  phone           String
+  email           String?
+  source          String    @default("WALK_IN")
+  interest        String?
+  budgetMin       Float?
+  budgetMax       Float?
+  status          String    @default("NEW")
+  assignedTo      String?
+  lostReason      String?
+  priority        String    @default("MEDIUM")
+  nextActionAt    DateTime?
+  convertedAt     DateTime?
+  convertedSaleId String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  isDeleted       Boolean   @default(false)
+
+  customer     Customer?         @relation(fields: [customerId], references: [id])
+  branch       Branch            @relation(fields: [branchId], references: [id])
+  interactions LeadInteraction[]
+  appointments Appointment[]
+  quotations   Quotation[]
+  @@map("leads")
+}
+
+model LeadInteraction {
+  id        String   @id @default(cuid())
+  leadId    String
+  type      String
+  direction String   @default("OUTBOUND")
+  notes     String?
+  doneBy    String
+  doneAt    DateTime @default(now())
+  outcome   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lead Lead @relation(fields: [leadId], references: [id])
+  @@map("lead_interactions")
+}
+
+model Appointment {
+  id              String    @id @default(cuid())
+  customerId      String?
+  leadId          String?
+  branchId        String
+  scheduledAt     DateTime
+  durationMinutes Int       @default(60)
+  purpose         String    @default("BROWSE")
+  status          String    @default("SCHEDULED")
+  assignedTo      String?
+  walkIn          Boolean   @default(false)
+  notes           String?
+  outcomeNotes    String?
+  reminderSent    Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  customer Customer? @relation(fields: [customerId], references: [id])
+  branch   Branch    @relation(fields: [branchId], references: [id])
+  lead     Lead?     @relation(fields: [leadId], references: [id])
+  @@map("appointments")
+}
+
+model Quotation {
+  id            String    @id @default(cuid())
+  quotationNo   String    @unique
+  customerId    String
+  branchId      String
+  leadId        String?
+  createdBy     String
+  status        String    @default("DRAFT")
+  validUntil    DateTime
+  metalRate22kt Float?
+  subtotal      Float     @default(0)
+  discountAmount Float    @default(0)
+  gstAmount     Float     @default(0)
+  totalAmount   Float     @default(0)
+  notes         String?
+  convertedSaleId String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  isDeleted     Boolean   @default(false)
+
+  customer  Customer        @relation(fields: [customerId], references: [id])
+  lead      Lead?           @relation(fields: [leadId], references: [id])
+  items     QuotationItem[]
+  discounts Discount[]
+  @@map("quotations")
+}
+
+model QuotationItem {
+  id              String   @id @default(cuid())
+  quotationId     String
+  itemId          String
+  listedPrice     Float
+  discountType    String?
+  discountValue   Float?
+  discountedPrice Float
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  quotation Quotation @relation(fields: [quotationId], references: [id])
+  @@map("quotation_items")
+}
+
+model Sale {
+  id            String   @id @default(cuid())
+  saleNo        String   @unique
+  quotationId   String?
+  customerId    String
+  branchId      String
+  saleType      String   @default("PURCHASE")
+  saleDate      DateTime @default(now())
+  metalRate22kt Float?
+  subtotal      Float    @default(0)
+  discountAmount Float   @default(0)
+  gstAmount     Float    @default(0)
+  totalAmount   Float    @default(0)
+  amountPaid    Float    @default(0)
+  balanceDue    Float    @default(0)
+  paymentStatus String   @default("PENDING")
+  salespersonId String
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  isDeleted     Boolean  @default(false)
+
+  customer  Customer   @relation(fields: [customerId], references: [id])
+  branch    Branch     @relation(fields: [branchId], references: [id])
+  items     SaleItem[]
+  payments  Payment[]
+  discounts Discount[]
+  invoice   Invoice?
+  refunds   Refund[]
+  @@map("sales")
+}
+
+model SaleItem {
+  id             String   @id @default(cuid())
+  saleId         String
+  itemId         String
+  unitPrice      Float
+  discountAmount Float    @default(0)
+  gstRate        Float    @default(3)
+  gstAmount      Float    @default(0)
+  finalPrice     Float
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  sale Sale          @relation(fields: [saleId], references: [id])
+  item JewelleryItem @relation(fields: [itemId], references: [id])
+  @@map("sale_items")
+}
+
+model Invoice {
+  id          String    @id @default(cuid())
+  saleId      String    @unique
+  invoiceNo   String    @unique
+  invoiceDate DateTime  @default(now())
+  gstType     String    @default("CGST_SGST")
+  pdfUrl      String?
+  sentAt      DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  sale Sale @relation(fields: [saleId], references: [id])
+  @@map("invoices")
+}
+
+model Payment {
+  id          String   @id @default(cuid())
+  saleId      String
+  amount      Float
+  method      String
+  referenceNo String?
+  status      String   @default("CAPTURED")
+  paidAt      DateTime @default(now())
+  capturedBy  String?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  sale Sale @relation(fields: [saleId], references: [id])
+  @@map("payments")
+}
+
+model Discount {
+  id          String    @id @default(cuid())
+  saleId      String?
+  quotationId String?
+  type        String
+  value       Float
+  amount      Float
+  reason      String
+  requestedBy String
+  approvedBy  String?
+  status      String    @default("PENDING")
+  approvedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  sale      Sale?      @relation(fields: [saleId], references: [id])
+  quotation Quotation? @relation(fields: [quotationId], references: [id])
+  @@map("discounts")
+}
+
+model Refund {
+  id          String    @id @default(cuid())
+  saleId      String
+  amount      Float
+  reason      String
+  method      String
+  status      String    @default("PENDING")
+  initiatedBy String
+  approvedBy  String?
+  processedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  sale Sale @relation(fields: [saleId], references: [id])
+  @@map("refunds")
+}
+
+model LoyaltyScheme {
+  id                String   @id @default(cuid())
+  name              String
+  type              String
+  durationMonths    Int
+  installmentAmount Float?
+  bonusMonth        Int?
+  terms             String?
+  status            String   @default("ACTIVE")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  enrollments CustomerSchemeEnrollment[]
+  @@map("loyalty_schemes")
+}
+
+model CustomerSchemeEnrollment {
+  id            String    @id @default(cuid())
+  customerId    String
+  schemeId      String
+  branchId      String
+  enrolledAt    DateTime  @default(now())
+  maturityDate  DateTime
+  monthlyAmount Float
+  totalPaid     Float     @default(0)
+  status        String    @default("ACTIVE")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  customer Customer      @relation(fields: [customerId], references: [id])
+  scheme   LoyaltyScheme @relation(fields: [schemeId], references: [id])
+  @@map("customer_scheme_enrollments")
+}
+
+model Employee {
+  id               String    @id @default(cuid())
+  userId           String    @unique
+  applicationId    String?
+  employeeCode     String    @unique
+  branchId         String
+  departmentId     String
+  designationId    String
+  employmentType   String    @default("PERMANENT")
+  status           String    @default("ACTIVE")
+  joinedAt         DateTime
+  probationEndDate DateTime?
+  confirmedAt      DateTime?
+  reportsTo        String?
+  currentCtc       Float
+  exitDate         DateTime?
+  exitReason       String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  isDeleted        Boolean   @default(false)
+  deletedAt        DateTime?
+
+  user               User              @relation(fields: [userId], references: [id])
+  branch             Branch            @relation(fields: [branchId], references: [id])
+  department         Department        @relation(fields: [departmentId], references: [id])
+  designation        Designation       @relation(fields: [designationId], references: [id])
+  attendance         Attendance[]
+  leaveRequests      LeaveRequest[]
+  leaveBalances      LeaveBalance[]
+  payroll            Payroll[]
+  performanceReviews PerformanceReview[]
+  targets            EmployeeTarget[]
+  trainingRecords    TrainingRecord[]
+  repairAssignments  RepairAssignment[]
+  interviewsGiven    Interview[] @relation("InterviewerEmployee")
+  @@map("employees")
+}
+
+model Attendance {
+  id              String    @id @default(cuid())
+  employeeId      String
+  branchId        String
+  date            DateTime
+  shiftId         String?
+  checkIn         DateTime?
+  checkOut        DateTime?
+  source          String    @default("MANUAL")
+  status          String    @default("PRESENT")
+  lateMinutes     Int?
+  overtimeMinutes Int?
+  approvedBy      String?
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [id])
+  shift    Shift?   @relation(fields: [shiftId], references: [id])
+
+  @@unique([employeeId, date])
+  @@map("attendance")
+}
+
+model LeaveType {
+  id                  String   @id @default(cuid())
+  name                String
+  code                String   @unique
+  isPaid              Boolean  @default(true)
+  maxDaysPerYear      Float
+  carryForward        Boolean  @default(false)
+  maxCarryForwardDays Float?
+  requiresApproval    Boolean  @default(true)
+  advanceNoticeDays   Int?
+  applicableTo        String   @default("ALL")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  requests LeaveRequest[]
+  balances LeaveBalance[]
+  @@map("leave_types")
+}
+
+model LeaveRequest {
+  id              String    @id @default(cuid())
+  employeeId      String
+  leaveTypeId     String
+  fromDate        DateTime
+  toDate          DateTime
+  days            Float
+  reason          String?
+  status          String    @default("PENDING")
+  approverId      String?
+  approvedAt      DateTime?
+  rejectionReason String?
+  appliedAt       DateTime  @default(now())
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  employee  Employee  @relation(fields: [employeeId], references: [id])
+  leaveType LeaveType @relation(fields: [leaveTypeId], references: [id])
+  @@map("leave_requests")
+}
+
+model LeaveBalance {
+  id             String   @id @default(cuid())
+  employeeId     String
+  leaveTypeId    String
+  year           Int
+  allocated      Float
+  used           Float    @default(0)
+  carriedForward Float    @default(0)
+  remaining      Float
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  employee  Employee  @relation(fields: [employeeId], references: [id])
+  leaveType LeaveType @relation(fields: [leaveTypeId], references: [id])
+
+  @@unique([employeeId, leaveTypeId, year])
+  @@map("leave_balances")
+}
+
+model Payroll {
+  id              String    @id @default(cuid())
+  employeeId      String
+  month           Int
+  year            Int
+  workingDays     Float
+  presentDays     Float
+  leaveDays       Float     @default(0)
+  lopDays         Float     @default(0)
+  basic           Float
+  hra             Float
+  allowances      Float     @default(0)
+  gross           Float
+  pfEmployee      Float     @default(0)
+  professionalTax Float     @default(0)
+  tds             Float     @default(0)
+  otherDeductions Float     @default(0)
+  totalDeductions Float
+  netPay          Float
+  status          String    @default("DRAFT")
+  paidAt          DateTime?
+  slipUrl         String?
+  processedBy     String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [id])
+
+  @@unique([employeeId, month, year])
+  @@map("payroll")
+}
+
+model PerformanceReview {
+  id               String    @id @default(cuid())
+  employeeId       String
+  reviewerId       String
+  periodType       String
+  periodStart      DateTime
+  periodEnd        DateTime
+  ratingsJson      String
+  selfAssessment   String?
+  reviewerComments String?
+  overallRating    Float?
+  status           String    @default("SELF_ASSESSMENT")
+  completedAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [id])
+  @@map("performance_reviews")
+}
+
+model EmployeeTarget {
+  id            String   @id @default(cuid())
+  employeeId    String
+  branchId      String
+  month         Int
+  year          Int
+  targetType    String
+  targetValue   Float
+  achievedValue Float?
+  setBy         String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [id])
+  @@map("employee_targets")
+}
+
+model TrainingRecord {
+  id             String    @id @default(cuid())
+  employeeId     String
+  trainingName   String
+  type           String
+  provider       String?
+  startedAt      DateTime
+  completedAt    DateTime?
+  score          Float?
+  passed         Boolean?
+  certificateUrl String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [id])
+  @@map("training_records")
+}
+
+model Job {
+  id                 String    @id @default(cuid())
+  branchId           String?
+  departmentId       String
+  designationId      String
+  title              String
+  type               String    @default("FULL_TIME")
+  description        String
+  requirements       String?
+  minExperienceYears Int?
+  vacancies          Int       @default(1)
+  salaryMin          Float?
+  salaryMax          Float?
+  locationCity       String?
+  status             String    @default("DRAFT")
+  publishedAt        DateTime?
+  closesAt           DateTime?
+  isPublic           Boolean   @default(true)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  isDeleted          Boolean   @default(false)
+
+  branch       Branch?        @relation(fields: [branchId], references: [id])
+  department   Department     @relation(fields: [departmentId], references: [id])
+  designation  Designation    @relation(fields: [designationId], references: [id])
+  applications JobApplication[]
+  assessments  Assessment[]
+  @@map("jobs")
+}
+
+model JobApplication {
+  id               String    @id @default(cuid())
+  jobId            String
+  applicantName    String
+  email            String
+  phone            String
+  resumeUrl        String?
+  coverLetter      String?
+  experienceYears  Float?
+  currentCtc       Float?
+  expectedCtc      Float?
+  noticePeriodDays Int?
+  status           String    @default("APPLIED")
+  screeningPassed  Boolean?
+  screenedBy       String?
+  appliedVia       String    @default("WEBSITE")
+  referredBy       String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  job               Job                @relation(fields: [jobId], references: [id])
+  assessmentAttempts AssessmentAttempt[]
+  interviews        Interview[]
+  offer             Offer?
+  onboardingTasks   OnboardingTask[]
+  @@map("job_applications")
+}
+
+model Assessment {
+  id              String   @id @default(cuid())
+  jobId           String
+  name            String
+  type            String
+  durationMinutes Int
+  totalMarks      Int
+  passingScore    Int
+  instructions    String?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  job      Job                @relation(fields: [jobId], references: [id])
+  attempts AssessmentAttempt[]
+  @@map("assessments")
+}
+
+model AssessmentAttempt {
+  id            String    @id @default(cuid())
+  applicationId String
+  assessmentId  String
+  startedAt     DateTime  @default(now())
+  submittedAt   DateTime?
+  score         Int?
+  passed        Boolean?
+  answersJson   String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  application JobApplication @relation(fields: [applicationId], references: [id])
+  assessment  Assessment     @relation(fields: [assessmentId], references: [id])
+  @@map("assessment_attempts")
+}
+
+model Interview {
+  id              String    @id @default(cuid())
+  applicationId   String
+  roundNumber     Int
+  interviewerId   String
+  scheduledAt     DateTime
+  durationMinutes Int?
+  mode            String    @default("IN_PERSON")
+  status          String    @default("SCHEDULED")
+  overallScore    Float?
+  recommendation  String?
+  feedback        String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  application JobApplication @relation(fields: [applicationId], references: [id])
+  interviewer Employee       @relation("InterviewerEmployee", fields: [interviewerId], references: [id])
+  @@map("interviews")
+}
+
+model Offer {
+  id              String    @id @default(cuid())
+  applicationId   String    @unique
+  designationId   String
+  branchId        String
+  offeredCtc      Float
+  joiningDate     DateTime
+  probationMonths Int?
+  offerLetterUrl  String?
+  status          String    @default("DRAFT")
+  sentAt          DateTime?
+  acceptedAt      DateTime?
+  declinedReason  String?
+  expiresAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  application JobApplication @relation(fields: [applicationId], references: [id])
+  designation Designation    @relation(fields: [designationId], references: [id])
+  @@map("offers")
+}
+
+model OnboardingTask {
+  id            String    @id @default(cuid())
+  applicationId String?
+  employeeId    String?
+  taskName      String
+  category      String
+  dueDate       DateTime
+  assignedTo    String
+  status        String    @default("PENDING")
+  completedAt   DateTime?
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  application JobApplication? @relation(fields: [applicationId], references: [id])
+  @@map("onboarding_tasks")
+}
+
+model RepairTicket {
+  id                  String    @id @default(cuid())
+  ticketNo            String    @unique
+  customerId          String
+  branchId            String
+  itemId              String?
+  receivedAt          DateTime  @default(now())
+  receivedBy          String
+  description         String
+  estimatedCost       Float?
+  finalCost           Float?
+  estimatedCompletion DateTime?
+  actualCompletion    DateTime?
+  status              String    @default("RECEIVED")
+  priority            String    @default("NORMAL")
+  deliveryNotes       String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  isDeleted           Boolean   @default(false)
+
+  customer    Customer         @relation(fields: [customerId], references: [id])
+  branch      Branch           @relation(fields: [branchId], references: [id])
+  item        JewelleryItem?   @relation(fields: [itemId], references: [id])
+  repairItems RepairItem[]
+  estimates   RepairEstimate[]
+  assignments RepairAssignment[]
+  @@map("repair_tickets")
+}
+
+model RepairItem {
+  id               String   @id @default(cuid())
+  ticketId         String
+  description      String
+  metalType        String?
+  purity           String?
+  grossWeightGm    Float?
+  issueDescription String
+  conditionBefore  String?
+  conditionAfter   String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  ticket RepairTicket @relation(fields: [ticketId], references: [id])
+  @@map("repair_items")
+}
+
+model RepairEstimate {
+  id               String    @id @default(cuid())
+  ticketId         String
+  labourCost       Float
+  materialCost     Float     @default(0)
+  total            Float
+  estimateNotes    String?
+  sentAt           DateTime?
+  customerDecision String?
+  preparedBy       String
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  ticket RepairTicket @relation(fields: [ticketId], references: [id])
+  @@map("repair_estimates")
+}
+
+model RepairAssignment {
+  id            String    @id @default(cuid())
+  ticketId      String
+  karigarId     String
+  assignedAt    DateTime  @default(now())
+  dueAt         DateTime?
+  completedAt   DateTime?
+  workNotes     String?
+  qualityPassed Boolean?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  ticket  RepairTicket @relation(fields: [ticketId], references: [id])
+  karigar Employee     @relation(fields: [karigarId], references: [id])
+  @@map("repair_assignments")
+}
+
+model CustomOrder {
+  id                String    @id @default(cuid())
+  orderNo           String    @unique
+  customerId        String
+  branchId          String
+  assignedTo        String
+  status            String    @default("BRIEF_RECEIVED")
+  occasion          String?
+  budget            Float?
+  advancePaid       Float?
+  estimatedDelivery DateTime?
+  finalPrice        Float?
+  saleId            String?
+  notes             String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  isDeleted         Boolean   @default(false)
+
+  customer   Customer            @relation(fields: [customerId], references: [id])
+  branch     Branch              @relation(fields: [branchId], references: [id])
+  brief      DesignBrief?
+  versions   DesignVersion[]
+  milestones ProductionMilestone[]
+  @@map("custom_orders")
+}
+
+model DesignBrief {
+  id                  String   @id @default(cuid())
+  orderId             String   @unique
+  metalType           String
+  purity              String
+  approximateWeightGm Float?
+  stoneRequirements   String?
+  occasion            String?
+  referenceImages     String?
+  styleNotes          String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  order CustomOrder @relation(fields: [orderId], references: [id])
+  @@map("design_briefs")
+}
+
+model DesignVersion {
+  id            String    @id @default(cuid())
+  orderId       String
+  versionNumber Int
+  designerId    String
+  designImages  String
+  designNotes   String?
+  estimatedCost Float?
+  submittedAt   DateTime  @default(now())
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  order     CustomOrder    @relation(fields: [orderId], references: [id])
+  approvals DesignApproval[]
+  @@map("design_versions")
+}
+
+model DesignApproval {
+  id               String    @id @default(cuid())
+  versionId        String
+  decision         String
+  customerFeedback String?
+  decidedBy        String
+  decisionAt       DateTime  @default(now())
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  version DesignVersion @relation(fields: [versionId], references: [id])
+  @@map("design_approvals")
+}
+
+model ProductionMilestone {
+  id            String    @id @default(cuid())
+  orderId       String
+  milestoneName String
+  sequence      Int
+  plannedAt     DateTime
+  completedAt   DateTime?
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  order CustomOrder @relation(fields: [orderId], references: [id])
+  @@map("production_milestones")
+}
+
+model Vendor {
+  id               String   @id @default(cuid())
+  userId           String?  @unique
+  name             String
+  type             String   @default("MANUFACTURER")
+  gstNumber        String?
+  panNumber        String?
+  phone            String
+  email            String?
+  address          String?
+  city             String?
+  specialty        String?
+  rating           Float?
+  paymentTermsDays Int?
+  status           String   @default("ACTIVE")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  isDeleted        Boolean  @default(false)
+
+  user           User?           @relation(fields: [userId], references: [id])
+  karigars       Karigar[]
+  workOrders     WorkOrder[]
+  vendorPayments VendorPayment[]
+  purchaseOrders PurchaseOrder[]
+  @@map("vendors")
+}
+
+model Karigar {
+  id              String   @id @default(cuid())
+  vendorId        String?
+  name            String
+  phone           String
+  specialization  String?
+  experienceYears Int?
+  rating          Float?
+  status          String   @default("ACTIVE")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  vendor     Vendor?     @relation(fields: [vendorId], references: [id])
+  workOrders WorkOrder[]
+  @@map("karigars")
+}
+
+model WorkOrder {
+  id             String    @id @default(cuid())
+  workOrderNo    String    @unique
+  vendorId       String?
+  karigarId      String?
+  type           String
+  repairTicketId String?
+  customOrderId  String?
+  description    String
+  dueDate        DateTime
+  status         String    @default("ISSUED")
+  agreedAmount   Float?
+  createdBy      String
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  vendor          Vendor?         @relation(fields: [vendorId], references: [id])
+  karigar         Karigar?        @relation(fields: [karigarId], references: [id])
+  materialIssues  MaterialIssue[]
+  materialReturns MaterialReturn[]
+  qualityChecks   QualityCheck[]
+  vendorPayments  VendorPayment[]
+  @@map("work_orders")
+}
+
+model MaterialIssue {
+  id          String   @id @default(cuid())
+  workOrderId String
+  issuedBy    String
+  issuedAt    DateTime @default(now())
+  metalType   String
+  purity      String
+  weightGm    Float
+  stonesJson  String?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workOrder WorkOrder @relation(fields: [workOrderId], references: [id])
+  @@map("material_issues")
+}
+
+model MaterialReturn {
+  id              String   @id @default(cuid())
+  workOrderId     String
+  receivedBy      String
+  receivedAt      DateTime @default(now())
+  metalReturnedGm Float
+  wastageGm       Float    @default(0)
+  wastagePercent  Float?
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  workOrder WorkOrder @relation(fields: [workOrderId], references: [id])
+  @@map("material_returns")
+}
+
+model QualityCheck {
+  id          String   @id @default(cuid())
+  workOrderId String
+  checkedBy   String
+  checkedAt   DateTime @default(now())
+  passed      Boolean
+  criteriaJson String?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workOrder WorkOrder @relation(fields: [workOrderId], references: [id])
+  @@map("quality_checks")
+}
+
+model VendorPayment {
+  id          String    @id @default(cuid())
+  vendorId    String
+  workOrderId String?
+  poId        String?
+  amount      Float
+  method      String
+  referenceNo String?
+  status      String    @default("PENDING")
+  paidBy      String
+  paidAt      DateTime?
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  vendor    Vendor     @relation(fields: [vendorId], references: [id])
+  workOrder WorkOrder? @relation(fields: [workOrderId], references: [id])
+  @@map("vendor_payments")
+}
+
+model PurchaseRequisition {
+  id           String   @id @default(cuid())
+  branchId     String
+  categoryId   String
+  description  String
+  quantity     Int
+  urgency      String   @default("NORMAL")
+  justification String?
+  requestedBy  String
+  status       String   @default("DRAFT")
+  approvedBy   String?
+  poId         String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  category Category @relation(fields: [categoryId], references: [id])
+  @@map("purchase_requisitions")
+}
+
+model PurchaseOrder {
+  id               String    @id @default(cuid())
+  poNumber         String    @unique
+  vendorId         String
+  requisitionId    String?
+  branchId         String
+  type             String    @default("STANDARD")
+  totalAmount      Float     @default(0)
+  currency         String    @default("INR")
+  status           String    @default("DRAFT")
+  paymentTermsDays Int?
+  expectedDelivery DateTime?
+  approvedBy       String?
+  approvedAt       DateTime?
+  orderedAt        DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  vendor        Vendor              @relation(fields: [vendorId], references: [id])
+  items         PurchaseOrderItem[]
+  goodsReceipts GoodsReceipt[]
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderItem {
+  id               String   @id @default(cuid())
+  poId             String
+  categoryId       String
+  description      String
+  quantity         Int
+  unitPrice        Float
+  totalPrice       Float
+  receivedQuantity Int?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  po       PurchaseOrder    @relation(fields: [poId], references: [id])
+  grnItems GoodsReceiptItem[]
+  @@map("purchase_order_items")
+}
+
+model GoodsReceipt {
+  id         String   @id @default(cuid())
+  grnNumber  String   @unique
+  poId       String
+  branchId   String
+  receivedAt DateTime @default(now())
+  receivedBy String
+  status     String   @default("RECEIVED")
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  po    PurchaseOrder    @relation(fields: [poId], references: [id])
+  items GoodsReceiptItem[]
+  @@map("goods_receipts")
+}
+
+model GoodsReceiptItem {
+  id               String   @id @default(cuid())
+  grnId            String
+  poItemId         String
+  itemId           String?
+  quantityReceived Int
+  condition        String   @default("GOOD")
+  notes            String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  grn    GoodsReceipt      @relation(fields: [grnId], references: [id])
+  poItem PurchaseOrderItem @relation(fields: [poItemId], references: [id])
+  item   JewelleryItem?    @relation(fields: [itemId], references: [id])
+  @@map("goods_receipt_items")
+}
+
+model FranchiseApplicant {
+  id                 String   @id @default(cuid())
+  userId             String?
+  name               String
+  email              String
+  phone              String
+  cityOfInterest     String
+  background         String?
+  investmentCapacity Float?
+  netWorth           Float?
+  hasProperty        Boolean?
+  referralSource     String?
+  status             String   @default("APPLIED")
+  assignedTo         String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  isDeleted          Boolean  @default(false)
+
+  locations       FranchiseLocation[]
+  dueDiligence    DueDiligenceReport?
+  agreement       FranchiseAgreement?
+  onboardingTasks FranchiseOnboardingTask[]
+  @@map("franchise_applicants")
+}
+
+model FranchiseLocation {
+  id                String   @id @default(cuid())
+  applicantId       String
+  address           String
+  city              String
+  areaSqft          Int?
+  ownershipType     String
+  rentPerMonth      Float?
+  status            String   @default("SUBMITTED")
+  reviewedBy        String?
+  reviewNotes       String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  applicant FranchiseApplicant @relation(fields: [applicantId], references: [id])
+  @@map("franchise_locations")
+}
+
+model DueDiligenceReport {
+  id              String   @id @default(cuid())
+  applicantId     String   @unique
+  financialCheck  String?
+  legalCheck      String?
+  backgroundCheck String?
+  siteCheck       String?
+  overallStatus   String   @default("IN_PROGRESS")
+  conductedBy     String
+  conductedAt     DateTime
+  reportUrl       String?
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  applicant FranchiseApplicant @relation(fields: [applicantId], references: [id])
+  @@map("due_diligence_reports")
+}
+
+model FranchiseAgreement {
+  id              String    @id @default(cuid())
+  applicantId     String    @unique
+  branchId        String?
+  agreementNumber String    @unique
+  startDate       DateTime
+  termYears       Int
+  endDate         DateTime
+  royaltyPercent  Float
+  initialFee      Float?
+  status          String    @default("DRAFT")
+  signedAt        DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  applicant FranchiseApplicant @relation(fields: [applicantId], references: [id])
+  @@map("franchise_agreements")
+}
+
+model FranchiseOnboardingTask {
+  id          String    @id @default(cuid())
+  applicantId String
+  branchId    String?
+  taskName    String
+  category    String
+  dueDate     DateTime
+  assignedTo  String
+  status      String    @default("PENDING")
+  completedAt DateTime?
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  applicant FranchiseApplicant @relation(fields: [applicantId], references: [id])
+  @@map("franchise_onboarding_tasks")
+}
+
+model FranchiseMonthlyReport {
+  id               String    @id @default(cuid())
+  branchId         String
+  reportingMonth   Int
+  reportingYear    Int
+  revenue          Float?
+  royaltyAmount    Float?
+  royaltyPaid      Boolean   @default(false)
+  complianceStatus String    @default("COMPLIANT")
+  complaintsCount  Int?
+  stockAuditStatus String?
+  submittedBy      String?
+  submittedAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  branch Branch @relation(fields: [branchId], references: [id])
+  @@map("franchise_monthly_reports")
+}
+
+model FinancialTransaction {
+  id              String   @id @default(cuid())
+  branchId        String
+  type            String
+  direction       String
+  amount          Float
+  referenceType   String?
+  referenceId     String?
+  category        String?
+  description     String?
+  transactionDate DateTime @default(now())
+  recordedBy      String
+  erpSyncStatus   String?
+  erpReference    String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  @@map("financial_transactions")
+}
+
+model BranchFinancial {
+  id                String    @id @default(cuid())
+  branchId          String
+  month             Int
+  year              Int
+  revenue           Float     @default(0)
+  cogs              Float     @default(0)
+  grossProfit       Float     @default(0)
+  operatingExpenses Float     @default(0)
+  netProfit         Float     @default(0)
+  royaltyPaid       Float?
+  status            String    @default("DRAFT")
+  finalizedBy       String?
+  finalizedAt       DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  branch Branch @relation(fields: [branchId], references: [id])
+
+  @@unique([branchId, month, year])
+  @@map("branch_financials")
+}
+
+model Notification {
+  id            String    @id @default(cuid())
+  userId        String
+  type          String
+  title         String
+  body          String
+  referenceType String?
+  referenceId   String?
+  channel       String    @default("IN_APP")
+  status        String    @default("PENDING")
+  scheduledAt   DateTime?
+  sentAt        DateTime?
+  readAt        DateTime?
+  errorMessage  String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+  @@map("notifications")
+}
+
+model ApprovalRequest {
+  id            String    @id @default(cuid())
+  module        String
+  action        String
+  entityType    String
+  entityId      String
+  requestedBy   String
+  assignedTo    String
+  priority      String    @default("MEDIUM")
+  status        String    @default("PENDING")
+  contextJson   String?
+  decisionNotes String?
+  requestedAt   DateTime  @default(now())
+  decidedAt     DateTime?
+  expiresAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  @@map("approval_requests")
+}
+
+model AuditEvent {
+  id             String   @id @default(cuid())
+  userId         String?
+  userRoleAtTime String?
+  action         String
+  module         String
+  entityType     String
+  entityId       String?
+  oldValueJson   String?
+  newValueJson   String?
+  ipAddress      String?
+  userAgent      String?
+  branchId       String?
+  sessionId      String?
+  createdAt      DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+  @@map("audit_events")
+}
+
+model AiSignal {
+  id                 String   @id @default(cuid())
+  signalType         String
+  module             String
+  branchId           String?
+  entityType         String?
+  entityId           String?
+  value              Float?
+  confidence         Float?
+  supportingDataJson String?
+  generatedAt        DateTime @default(now())
+  expiresAt          DateTime?
+  createdAt          DateTime @default(now())
+
+  recommendations AiRecommendation[]
+  @@map("ai_signals")
+}
+
+model AiRecommendation {
+  id                 String    @id @default(cuid())
+  signalId           String?
+  type               String
+  title              String
+  description        String
+  supportingDataJson String?
+  priority           String    @default("MEDIUM")
+  status             String    @default("PENDING")
+  assignedTo         String?
+  createdAt          DateTime  @default(now())
+  decidedAt          DateTime?
+  decidedBy          String?
+  decisionNotes      String?
+
+  signal AiSignal? @relation(fields: [signalId], references: [id])
+  @@map("ai_recommendations")
+}
+
+model GoldRate {
+  id        String   @id @default(cuid())
+  date      DateTime @unique
+  rate22kt  Float
+  rate18kt  Float
+  rate24kt  Float
+  source    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@map("gold_rates")
+}
