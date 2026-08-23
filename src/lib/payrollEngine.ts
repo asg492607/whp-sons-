@@ -3,8 +3,10 @@ export interface StatutoryRule {
   version: number;
   effectiveFrom: string;
   effectiveTo?: string;
-  state: string;
+  jurisdiction: string;
+  approvalStatus: "ACTIVE" | "SUPERSEDED" | "DRAFT";
   approvedBy: string;
+  approvedAt: string;
   
   // Employee Provident Fund (PF)
   pfEmployeeRate: number; // 0.12 (12%)
@@ -25,8 +27,10 @@ export const ACTIVE_STATUTORY_RULE_MASTER: StatutoryRule = {
   ruleId: "STAT-MH-2026-V1",
   version: 1,
   effectiveFrom: "2026-04-01",
-  state: "MAHARASHTRA",
-  approvedBy: "FINANCE_BOARD",
+  jurisdiction: "MAHARASHTRA",
+  approvalStatus: "ACTIVE",
+  approvedBy: "BOARD_FINANCE_COMMITTEE",
+  approvedAt: "2026-03-15T10:00:00.000Z",
   pfEmployeeRate: 0.12,
   pfWageCap: 15000,
   pfMaxEmployeeDeduction: 1800,
@@ -40,6 +44,16 @@ export const ACTIVE_STATUTORY_RULE_MASTER: StatutoryRule = {
     { minGross: 10001, maxGross: Infinity, ptAmount: 200 }
   ]
 };
+
+export type PayrollLifecycleStatus =
+  | "DRAFT"
+  | "ATTENDANCE_LOCKED"
+  | "CALCULATED"
+  | "HR_REVIEW"
+  | "FINANCE_REVIEW"
+  | "APPROVED"
+  | "PAID"
+  | "CLOSED";
 
 export interface PayrollInput {
   employeeCode: string;
@@ -108,10 +122,22 @@ export interface PayrollResult {
 
   // Frozen Version Snapshot & Governance
   ruleSnapshot: StatutoryRule;
-  approvalStatus: "DRAFT" | "ATTENDANCE_LOCKED" | "INCENTIVE_APPROVED" | "HR_APPROVED" | "FINANCE_APPROVED" | "DISBURSED";
+  approvalStatus: PayrollLifecycleStatus;
   approvedByHr?: string;
   approvedByFinance?: string;
   disbursedAt?: string;
+}
+
+/**
+ * Service-level Immutability Guard for Closed/Paid Payroll Runs
+ * Throws [IMMUTABILITY_VIOLATION] if any service, background job, or API attempts in-place mutation on PAID or CLOSED payrolls.
+ */
+export function assertPayrollCanBeUpdated(payroll: { approvalStatus: PayrollLifecycleStatus }): void {
+  if (payroll.approvalStatus === "PAID" || payroll.approvalStatus === "CLOSED") {
+    throw new Error(
+      `[IMMUTABILITY_VIOLATION] Payroll record in status ${payroll.approvalStatus} is permanently locked and frozen. Corrections must be issued via formal Adjustment / Reversal vouchers.`
+    );
+  }
 }
 
 /**
@@ -141,18 +167,15 @@ export function calculateEmployeePayroll(input: PayrollInput): PayrollResult {
   const grossEarnings = basicPayEarned + hraEarned + allowancesEarned + overtimePay + salesCommissionIncentive;
 
   // 1. Employee Statutory Deductions
-  // PF: 12% of Basic, capped at rule.pfMaxEmployeeDeduction
   const pfEmployeeDeduction = Math.min(
     rule.pfMaxEmployeeDeduction,
     Math.round(basicPayEarned * rule.pfEmployeeRate)
   );
 
-  // ESI: 0.75% of Gross if Gross <= rule.esiGrossWageCap
   const esiEmployeeDeduction = grossEarnings <= rule.esiGrossWageCap
     ? Math.round(grossEarnings * rule.esiEmployeeRate)
     : 0;
 
-  // PT: Maharashtra Slabs matching
   let professionalTax = 0;
   for (const slab of rule.ptSlabs) {
     if (grossEarnings >= slab.minGross && grossEarnings <= slab.maxGross) {
@@ -219,7 +242,7 @@ export function calculateEmployeePayroll(input: PayrollInput): PayrollResult {
     totalCostToCompany,
 
     ruleSnapshot: rule,
-    approvalStatus: "HR_APPROVED",
+    approvalStatus: "APPROVED",
     approvedByHr: "Sujata Pethe (HR Director)",
     approvedByFinance: "Rajendra Pethe (Managing Director)"
   };
