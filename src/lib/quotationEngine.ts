@@ -1,6 +1,9 @@
 import { calculateInvoiceTax, TaxBreakup } from "./taxEngine";
 
+export type QuotationStatus = "DRAFT" | "GENERATED" | "SENT_TO_CUSTOMER" | "VIEWED" | "ACCEPTED" | "CONVERTED_TO_SALE" | "EXPIRED";
+
 export interface QuotationLineItem {
+  itemId?: string;
   description: string;
   metalType: "GOLD" | "SILVER" | "PLATINUM";
   purity: "24KT" | "22KT" | "18KT" | "14KT" | "999_SILVER";
@@ -26,13 +29,14 @@ export interface CustomerQuotationInput {
 }
 
 export interface CalculatedQuotationItem {
+  itemId?: string;
   description: string;
   metalType: string;
   purity: string;
   grossWeightGm: number;
   stoneWeightGm: number;
   netMetalWeightGm: number;
-  goldRatePerGm: number;
+  rateUsedAtQuotationCreation: number;
   rawMetalValue: number;
   makingCharges: number;
   stoneValue: number;
@@ -44,6 +48,7 @@ export interface CustomerQuotationResult {
   quotationNo: string;
   quotationDate: string;
   validUntil: string;
+  status: QuotationStatus;
   customerName: string;
   customerPhone: string;
   branchName: string;
@@ -74,7 +79,7 @@ const PURITY_PURITY_RATIOS: Record<string, number> = {
 
 /**
  * WHPS Official Customer Quotation & Price Breakup Engine
- * Calculates itemized metal value, making charges, stone value, 3% GST, and trade-in exchange deductions.
+ * Freezes rates at quotation creation time and manages quotation lifecycle transitions.
  */
 export function calculateCustomerQuotation(input: CustomerQuotationInput): CustomerQuotationResult {
   const quotationNo = input.quotationNo || `EST-${Date.now().toString().slice(-6)}`;
@@ -92,10 +97,10 @@ export function calculateCustomerQuotation(input: CustomerQuotationInput): Custo
     const stoneWt = Math.max(0, item.stoneWeightGm || 0);
     const net = Math.max(0, item.netMetalWeightGm || gross - stoneWt);
 
-    const rate = Math.max(0, item.goldRatePerGm || 6850);
+    const rateUsedAtQuotationCreation = Math.max(0, item.goldRatePerGm || 6850);
     const purityRatio = PURITY_PURITY_RATIOS[item.purity] || 0.9167;
 
-    const rawMetalValue = Math.round(net * purityRatio * rate);
+    const rawMetalValue = Math.round(net * purityRatio * rateUsedAtQuotationCreation);
     
     let making = 0;
     if (item.fixedMakingCharge !== undefined && item.fixedMakingCharge > 0) {
@@ -113,13 +118,14 @@ export function calculateCustomerQuotation(input: CustomerQuotationInput): Custo
     stoneValueTotal += stoneVal;
 
     return {
+      itemId: item.itemId,
       description: item.description,
       metalType: item.metalType,
       purity: item.purity,
       grossWeightGm: gross,
       stoneWeightGm: stoneWt,
       netMetalWeightGm: net,
-      goldRatePerGm: rate,
+      rateUsedAtQuotationCreation,
       rawMetalValue,
       makingCharges: making,
       stoneValue: stoneVal,
@@ -148,6 +154,7 @@ export function calculateCustomerQuotation(input: CustomerQuotationInput): Custo
     quotationNo,
     quotationDate,
     validUntil: validUntilDate,
+    status: "GENERATED",
     customerName: input.customerName,
     customerPhone: input.customerPhone || "+91 98200 12345",
     branchName: input.branchName || "Main Showroom - Laxmi Road, Pune",
@@ -161,10 +168,10 @@ export function calculateCustomerQuotation(input: CustomerQuotationInput): Custo
     exchangeCreditDeduction: exchangeDeduction,
     netPayableAmount,
     termsAndConditions: [
-      "Quotation is valid for 7 days from the date of issue subject to daily metal rate fluctuations.",
+      "Quotation is valid for 7 days from the date of issue based on Rate Used at Quotation Creation.",
       "Making charges and taxes are calculated per standard WHPS billing policy.",
       "Old jewellery trade-in value is subject to final physical assay and purity verification.",
-      "GST rate is 3% as mandated by Indian GST tax regulations."
+      "GST rate is 3% on metal/gems and 18% on making charges as mandated by Indian GST tax regulations."
     ]
   };
 }
