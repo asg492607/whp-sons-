@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import Image from "next/image";
 
 interface Jewellery360ViewerProps {
   images: string[];
@@ -70,9 +71,12 @@ export default function Jewellery360Viewer({
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
       >
-        <img
+        <Image
           src={currentImage}
           alt={altText}
+          width={400}
+          height={320}
+          priority={currentFrame === 0}
           className="max-h-full max-w-full object-contain drop-shadow-md transition-all duration-150"
         />
 

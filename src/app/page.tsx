@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import Jewellery360Viewer from "@/components/Jewellery360Viewer";
 
 export default function HomePage() {
@@ -77,10 +78,13 @@ export default function HomePage() {
 
       {/* Hero Banner with High-Res Gold Jewellery & Corner Logo */}
       <section className="relative h-[560px] bg-neutral-900 overflow-hidden">
-        <img
+        <Image
           src="/images/hero_gold_jewellery.jpg"
           alt="Waman Hari Pethe Sons Heritage 22KT Gold Crafts"
-          className="w-full h-full object-cover object-center opacity-90"
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover object-center opacity-90"
         />
         <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent flex items-center">
           <div className="max-w-7xl mx-auto px-6 w-full">
