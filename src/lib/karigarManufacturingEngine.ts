@@ -10,7 +10,8 @@ export interface VersionedManufacturingStandardRule {
   allowedWastagePercent: number;
   allowedLabourRatePerGm: number;
   effectiveFrom: string;
-  status: "ACTIVE" | "SUPERSEDED";
+  status: "DRAFT" | "REVIEWED" | "APPROVED" | "ACTIVE" | "SUPERSEDED";
+  approvedBy: string;
 }
 
 /** Immutable, Versioned WHPS Manufacturing Standards Master */
@@ -25,7 +26,8 @@ export const VERSIONED_MANUFACTURING_STANDARDS: VersionedManufacturingStandardRu
     allowedWastagePercent: 3.5,
     allowedLabourRatePerGm: 550,
     effectiveFrom: "2026-08-01T00:00:00.000Z",
-    status: "ACTIVE"
+    status: "ACTIVE",
+    approvedBy: "Head of Manufacturing Operations"
   },
   {
     standardId: "STD-MFG-22K-BANGLES",
@@ -37,7 +39,8 @@ export const VERSIONED_MANUFACTURING_STANDARDS: VersionedManufacturingStandardRu
     allowedWastagePercent: 2.0,
     allowedLabourRatePerGm: 350,
     effectiveFrom: "2026-08-01T00:00:00.000Z",
-    status: "ACTIVE"
+    status: "ACTIVE",
+    approvedBy: "Head of Manufacturing Operations"
   },
   {
     standardId: "STD-MFG-22K-HANDMADE",
@@ -49,7 +52,8 @@ export const VERSIONED_MANUFACTURING_STANDARDS: VersionedManufacturingStandardRu
     allowedWastagePercent: 2.5,
     allowedLabourRatePerGm: 450,
     effectiveFrom: "2026-08-01T00:00:00.000Z",
-    status: "ACTIVE"
+    status: "ACTIVE",
+    approvedBy: "Head of Manufacturing Operations"
   },
   {
     standardId: "STD-MFG-22K-CHAINS",
@@ -61,7 +65,8 @@ export const VERSIONED_MANUFACTURING_STANDARDS: VersionedManufacturingStandardRu
     allowedWastagePercent: 1.5,
     allowedLabourRatePerGm: 250,
     effectiveFrom: "2026-08-01T00:00:00.000Z",
-    status: "ACTIVE"
+    status: "ACTIVE",
+    approvedBy: "Head of Manufacturing Operations"
   },
   {
     standardId: "STD-MFG-18K-DIAMOND",
@@ -73,7 +78,8 @@ export const VERSIONED_MANUFACTURING_STANDARDS: VersionedManufacturingStandardRu
     allowedWastagePercent: 3.0,
     allowedLabourRatePerGm: 600,
     effectiveFrom: "2026-08-01T00:00:00.000Z",
-    status: "ACTIVE"
+    status: "ACTIVE",
+    approvedBy: "Head of Manufacturing Operations"
   }
 ];
 
@@ -185,7 +191,8 @@ export function lookupVersionedStandard(
     allowedWastagePercent: 2.5,
     allowedLabourRatePerGm: 450,
     effectiveFrom: "2026-08-01T00:00:00.000Z",
-    status: "ACTIVE"
+    status: "ACTIVE",
+    approvedBy: "Head of Manufacturing Operations"
   };
 }
 
