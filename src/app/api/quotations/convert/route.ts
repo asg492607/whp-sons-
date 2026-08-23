@@ -23,9 +23,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: "Required customer or branch record not found" }, { status: 400 });
     }
 
+    // CONCURRENCY & DOUBLE-SALE GUARD CHECK
+    if (item && item.status !== "IN_STOCK" && item.status !== "RESERVED") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `[CONCURRENCY_CONFLICT] Jewellery item ${item.itemCode} is currently ${item.status} and cannot be converted to Sale.`
+        },
+        { status: 409 }
+      );
+    }
+
     const saleNo = `SALE-CONV-${Date.now().toString().slice(-6)}`;
 
-    // Atomic Prisma $transaction: Quotation -> Reservation -> Sale
+    // Atomic Prisma $transaction: Quotation -> Concurrency Lock -> Sale
     const conversionResult = await db.$transaction(async (tx) => {
       const sale = await tx.sale.create({
         data: {
@@ -39,7 +50,7 @@ export async function POST(req: Request) {
           amountPaid: quotation.grandTotal,
           balanceDue: 0,
           paymentStatus: "PAID",
-          notes: `Converted from Quotation ${quotation.quotationNo}`,
+          notes: `Converted from Quotation ${quotation.quotationNo} (Snapshot: Rate ${quotation.items[0]?.rateUsedAtQuotationCreation}/g, Tax ₹${quotation.taxBreakdown.totalGst}, Credit ₹${quotation.exchangeCreditDeduction})`,
           payments: {
             create: [
               {
