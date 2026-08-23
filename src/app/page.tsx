@@ -70,6 +70,7 @@ export default function HomePage() {
                 alt="Waman Hari Pethe Sons Logo"
                 fill
                 priority
+                sizes="176px"
                 className="object-contain object-left"
               />
             </div>
