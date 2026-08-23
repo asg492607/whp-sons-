@@ -13,7 +13,12 @@ export default function HomePage() {
       purity: "22KT Gold",
       weight: 35.5,
       price: 243500,
-      images: ["/images/peshwai_necklace.jpg", "/images/hero_gold_jewellery.jpg"]
+      images: [
+        "/images/peshwai_necklace.jpg",
+        "/assets/products/kolhapuri_saaj.jpg",
+        "/images/hero_gold_jewellery.jpg",
+        "/assets/products/bridal_necklace.jpg"
+      ]
     },
     {
       id: "p2",
@@ -21,7 +26,11 @@ export default function HomePage() {
       purity: "22KT Gold",
       weight: 48.0,
       price: 329000,
-      images: ["/images/nagas_bangles.jpg", "/images/hero_gold_jewellery.jpg"]
+      images: [
+        "/images/nagas_bangles.jpg",
+        "/assets/products/gold_bangles.jpg",
+        "/assets/products/mens_royal_kada.jpg"
+      ]
     },
     {
       id: "p3",
@@ -29,7 +38,11 @@ export default function HomePage() {
       purity: "18KT White Gold",
       weight: 6.5,
       price: 185000,
-      images: ["/images/solitaire_ring.jpg"]
+      images: [
+        "/images/solitaire_ring.jpg",
+        "/assets/products/diamond_solitaire.jpg",
+        "/assets/products/solitaire_diamond_ring.jpg"
+      ]
     },
     {
       id: "p4",
@@ -37,25 +50,35 @@ export default function HomePage() {
       purity: "22KT Gold",
       weight: 22.0,
       price: 154000,
-      images: ["/images/kundan_jhumka.jpg"]
+      images: [
+        "/images/kundan_jhumka.jpg",
+        "/assets/products/brahmani_nath.jpg",
+        "/assets/products/mangalsutra.jpg"
+      ]
     }
   ];
 
   return (
     <div className="min-h-screen bg-[#FAF8F5] text-[#1E1E1E]">
-      {/* Top Header Navigation */}
+      {/* Top Header Navigation with Official WHPS Logo */}
       <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-[#E8E2D9]">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-[#ED5425] rounded-xl flex items-center justify-center text-white font-serif font-bold text-xl shadow-md">
-              W
+            <div className="relative w-44 h-12">
+              <Image
+                src="/assets/logo/whps_logo.png"
+                alt="Waman Hari Pethe Sons Logo"
+                fill
+                priority
+                className="object-contain object-left"
+              />
             </div>
-            <div>
-              <div className="font-serif font-bold text-lg leading-none text-[#1E1E1E]">
-                वामन हरी पेटे सन्स
-              </div>
-              <div className="text-[10px] text-[#ED5425] font-bold uppercase tracking-widest mt-0.5">
+            <div className="border-l border-neutral-300 pl-3 hidden sm:block">
+              <div className="text-[10px] text-[#ED5425] font-bold uppercase tracking-widest">
                 Jewellers Since 1909
+              </div>
+              <div className="text-[9px] text-neutral-500 font-serif font-semibold">
+                वामन हरी पेटे सन्स
               </div>
             </div>
           </div>
@@ -77,7 +100,7 @@ export default function HomePage() {
         </div>
       </header>
 
-      {/* Hero Banner with High-Res Gold Jewellery & Corner Logo */}
+      {/* Hero Banner with High-Res Gold Jewellery & Official WHPS Logo Watermark */}
       <section className="relative h-[560px] bg-neutral-900 overflow-hidden">
         <Image
           src="/images/hero_gold_jewellery.jpg"
@@ -87,7 +110,7 @@ export default function HomePage() {
           sizes="100vw"
           className="object-cover object-center opacity-90"
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent flex items-center">
+        <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/45 to-transparent flex items-center">
           <div className="max-w-7xl mx-auto px-6 w-full">
             <div className="max-w-xl">
               <span className="px-3 py-1 bg-[#ED5425] text-white text-[11px] font-bold uppercase tracking-widest rounded-md shadow-md">
@@ -97,7 +120,7 @@ export default function HomePage() {
                 Jewellery That Carries A Legacy.
               </h1>
               <p className="text-sm text-neutral-200 mt-3 leading-relaxed">
-                Discover timeless Maharashtrian Peshwai craftsmanship, certified hallmarked gold, and conflict-free diamond heirlooms passed across generations.
+                Discover timeless Maharashtrian Peshwai craftsmanship, certified hallmarked gold, and conflict-free diamond heirlooms passed across generations from Waman Hari Pethe Sons.
               </p>
               <div className="flex items-center gap-4 mt-8">
                 <Link
@@ -117,10 +140,15 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Small Brand Logo Badge in Top Right Corner */}
-        <div className="absolute top-6 right-6 bg-black/70 backdrop-blur-md px-4 py-2 rounded-lg border border-amber-500/40 flex items-center gap-2 shadow-xl">
-          <span className="text-amber-400 font-serif font-bold text-sm">वामन हरी पेटे सन्स</span>
-          <span className="text-amber-200/70 font-mono text-xs">• 1909</span>
+        {/* Official WHPS Logo Badge in Top Right Corner of Hero */}
+        <div className="absolute top-6 right-6 bg-white/90 backdrop-blur-md px-4 py-2 rounded-xl border border-amber-500/40 flex items-center gap-2 shadow-2xl">
+          <Image
+            src="/assets/logo/whps_logo.png"
+            alt="Waman Hari Pethe Sons Brand Logo"
+            width={120}
+            height={40}
+            className="object-contain h-8 w-auto"
+          />
         </div>
       </section>
 
@@ -135,8 +163,8 @@ export default function HomePage() {
               Peshwai & Heritage Masterpieces
             </h2>
           </div>
-          <p className="text-xs text-neutral-500 max-w-sm mt-2 md:mt-0">
-            Drag any jewellery card left or right to inspect 360-degree rotational angles, craftsmanship details, and hallmarking stamps.
+          <p className="text-xs text-neutral-500 max-w-md mt-2 md:mt-0 leading-relaxed">
+            Drag or swipe left/right on any jewellery card or click <strong className="text-[#ED5425]">▶ Auto Spin 360°</strong> to continuously rotate the piece across multiple angles.
           </p>
         </div>
 
