@@ -23,21 +23,27 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: "Required customer or branch record not found" }, { status: 400 });
     }
 
-    // CONCURRENCY & DOUBLE-SALE GUARD CHECK
-    if (item && item.status !== "IN_STOCK" && item.status !== "RESERVED") {
-      return NextResponse.json(
-        {
-          success: false,
-          error: `[CONCURRENCY_CONFLICT] Jewellery item ${item.itemCode} is currently ${item.status} and cannot be converted to Sale.`
-        },
-        { status: 409 }
-      );
-    }
-
     const saleNo = `SALE-CONV-${Date.now().toString().slice(-6)}`;
 
-    // Atomic Prisma $transaction: Quotation -> Concurrency Lock -> Sale
+    // Atomic Prisma $transaction with Conditional Concurrency State Lock
     const conversionResult = await db.$transaction(async (tx) => {
+      if (item) {
+        // ATOMIC CONDITIONAL UPDATE: Ensures row count === 1 to eliminate race conditions
+        const updated = await tx.jewelleryItem.updateMany({
+          where: {
+            id: item.id,
+            status: { in: ["IN_STOCK", "RESERVED"] }
+          },
+          data: { status: "SOLD" }
+        });
+
+        if (updated.count === 0) {
+          throw new Error(
+            `[CONCURRENCY_CONFLICT] Jewellery item ${item.itemCode} is currently locked or sold by another concurrent request.`
+          );
+        }
+      }
+
       const sale = await tx.sale.create({
         data: {
           saleNo,
@@ -65,13 +71,6 @@ export async function POST(req: Request) {
         include: { payments: true }
       });
 
-      if (item) {
-        await tx.jewelleryItem.update({
-          where: { id: item.id },
-          data: { status: "SOLD" }
-        });
-      }
-
       await tx.auditEvent.create({
         data: {
           userId: null,
@@ -91,6 +90,9 @@ export async function POST(req: Request) {
       data: { quotationStatus: "CONVERTED_TO_SALE", sale: conversionResult }
     });
   } catch (error: any) {
+    if (error.message.includes("[CONCURRENCY_CONFLICT]")) {
+      return NextResponse.json({ success: false, error: error.message }, { status: 409 });
+    }
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
