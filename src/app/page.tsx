@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import Jewellery360Viewer from "@/components/Jewellery360Viewer";
+import { formatINR } from "@/lib/formatters";
 
 export default function HomePage() {
   const featuredProducts = [
@@ -149,8 +150,8 @@ export default function HomePage() {
                 grossWeight={prod.weight}
               />
               <div className="mt-3 flex justify-between items-center px-1">
-                <span className="text-sm font-bold text-[#1E1E1E]">
-                  ₹{prod.price.toLocaleString()}
+                <span className="text-sm font-bold text-[#1E1E1E]" suppressHydrationWarning>
+                  ₹{formatINR(prod.price)}
                 </span>
                 <Link
                   href="/admin/quotations"
